@@ -1,0 +1,3 @@
+# Backend migrations folder
+# Flask-Migrate will populate this directory.
+# The versions/ subfolder is gitignored to avoid conflicts.

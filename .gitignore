@@ -1,0 +1,84 @@
+# ─── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+venv/
+ENV/
+.venv/
+*.pyo
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+instance/
+.webassets-cache
+
+# ─── Environment Variables (NEVER commit these) ────────
+.env
+.env.local
+.env.development
+.env.production
+.env.test
+backend/.env
+frontend/.env
+
+# ─── Database ─────────────────────────────────────────
+*.sqlite3
+*.db
+
+# ─── Node / Frontend ──────────────────────────────────
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+dist/
+frontend/dist/
+.vite/
+
+# ─── OS ───────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ─── IDE / Editors ────────────────────────────────────
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Uploads / Media ──────────────────────────────────
+backend/uploads/
+*.xlsx
+*.xls
+!database/sample_applicant_upload.csv
+
+# ─── Logs ─────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Migrations (keep folder, ignore auto-generated) ──
+backend/migrations/versions/*.py
+
+# ─── Docker ───────────────────────────────────────────
+.dockerignore
+
+# ─── AWS ──────────────────────────────────────────────
+.aws/
+*.pem

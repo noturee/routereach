@@ -1,0 +1,55 @@
+{
+  "family": "routereach-backend",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "executionRoleArn": "arn:aws:iam::869935107658:role/ecsTaskExecutionRole",
+  "taskRoleArn":      "arn:aws:iam::869935107658:role/routereach-task-role",
+  "containerDefinitions": [
+    {
+      "name": "backend",
+      "image": "869935107658.dkr.ecr.us-east-1.amazonaws.com/routereach-backend:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 5000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        { "name": "FLASK_ENV",       "value": "production" },
+        { "name": "AWS_REGION",      "value": "us-east-1"  },
+        { "name": "EMAIL_PROVIDER",  "value": "sendgrid"   }
+      ],
+      "secrets": [
+        { "name": "DATABASE_URL",       "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:DATABASE_URL::"       },
+        { "name": "SECRET_KEY",         "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:SECRET_KEY::"         },
+        { "name": "JWT_SECRET_KEY",     "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:JWT_SECRET_KEY::"     },
+        { "name": "CORS_ORIGINS",       "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:CORS_ORIGINS::"       },
+        { "name": "SENDGRID_API_KEY",   "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:SENDGRID_API_KEY::"   },
+        { "name": "FROM_EMAIL",         "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:FROM_EMAIL::"         },
+        { "name": "TWILIO_ACCOUNT_SID", "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:TWILIO_ACCOUNT_SID::" },
+        { "name": "TWILIO_AUTH_TOKEN",  "valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:TWILIO_AUTH_TOKEN::"  },
+        { "name": "TWILIO_PHONE_NUMBER","valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:TWILIO_PHONE_NUMBER::" },
+        { "name": "GOOGLE_MAPS_API_KEY","valueFrom": "arn:aws:secretsmanager:us-east-1:869935107658:secret:routereach/production:GOOGLE_MAPS_API_KEY::" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group":         "/ecs/routereach-backend",
+          "awslogs-region":        "us-east-1",
+          "awslogs-stream-prefix": "ecs",
+          "awslogs-create-group":  "true"
+        }
+      },
+      "healthCheck": {
+        "command":     ["CMD-SHELL", "curl -sf http://localhost:5000/api/health || exit 1"],
+        "interval":    30,
+        "timeout":      5,
+        "retries":      3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
