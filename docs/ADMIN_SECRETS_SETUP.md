@@ -1,6 +1,6 @@
 # AWS Secrets Manager Setup — Admin Instructions
 
-**Status:** Required before Phase 7 (Deployment)  
+**Status:** Completed in production; use this runbook for secret rotation or environment rebuilds  
 **Permissions Required:** `secretsmanager:CreateSecret`
 
 ---
@@ -22,7 +22,7 @@ Add the following key-value pairs (copy-paste from the JSON below):
 
 ```json
 {
-  "DATABASE_URL": "postgresql://routereach_user:U2W2oArxjiSRKx5oieGBhUhYuTxpQZwe@routereach-prod.chwmymsk897f.us-east-1.rds.amazonaws.com:5432/routereach",
+  "DATABASE_URL": "postgresql://routereach_user:<DB_PASSWORD>@routereach-prod.chwmymsk897f.us-east-1.rds.amazonaws.com:5432/routereach",
   "SECRET_KEY": "generate_a_random_32_byte_hex_string_here",
   "JWT_SECRET_KEY": "generate_another_random_32_byte_hex_string_here",
   "CORS_ORIGINS": "https://routereachpro.com",
@@ -34,6 +34,12 @@ Add the following key-value pairs (copy-paste from the JSON below):
   "GOOGLE_MAPS_API_KEY": "your-google-maps-api-key-here"
 }
 ```
+
+Twilio mapping for this app:
+- `TWILIO_ACCOUNT_SID` must be your Twilio Account SID and typically starts with `AC...`
+- `TWILIO_AUTH_TOKEN` must be the Twilio auth token associated with that account SID
+- `TWILIO_PHONE_NUMBER` must be your Twilio sending number in E.164 format, for example `+16075551234`
+- A Twilio API key SID starting with `SK...` is not used by this codebase and should not be entered in any of these fields
 
 ### Step 3: Generate SECRET_KEY and JWT_SECRET_KEY
 
@@ -58,9 +64,13 @@ Replace these placeholders with **actual keys** from your services:
 |-------|--------|---------|
 | `SENDGRID_API_KEY` | SendGrid dashboard | `SG.xxxxx...` |
 | `TWILIO_ACCOUNT_SID` | Twilio console | `ACxxxxx...` |
-| `TWILIO_AUTH_TOKEN` | Twilio console | (auth token) |
+| `TWILIO_AUTH_TOKEN` | Twilio console | Twilio auth token |
 | `TWILIO_PHONE_NUMBER` | Twilio phone number | `+12025551234` |
 | `GOOGLE_MAPS_API_KEY` | Google Cloud console | (API key) |
+
+Important:
+- Do not put a Twilio API key SID like `SK...` into `TWILIO_ACCOUNT_SID`
+- Do not put the Account SID like `AC...` into `TWILIO_AUTH_TOKEN`
 
 ### Step 5: Name the Secret
 
@@ -90,7 +100,7 @@ Output should show all 10 key-value pairs.
 
 ## Next Step
 
-Once the admin creates this secret, notify the dev team to run:
+After creating or rotating this secret, notify the dev team to run:
 
 ```bash
 cd /Users/charismadezonie/RouteReach

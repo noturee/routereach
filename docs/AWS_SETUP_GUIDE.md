@@ -1,5 +1,9 @@
 # AWS Deployment Setup Guide — RouteReach Pro
 
+> Current state (June 17, 2026): baseline production deployment is complete and stable.
+> Backend: `routereach-backend:6` on ECS Fargate, API health `200`, frontend health `200`.
+> Use this guide for re-provisioning, disaster recovery, or environment rebuilds.
+
 **Your AWS Account:** `869935107658`  
 **Region:** `us-east-1`  
 **Domain:** `routereachpro.com`
@@ -326,7 +330,7 @@ aws acm request-certificate \
 ```bash
 export AWS_REGION="us-east-1"
 export ACCOUNT_ID="869935107658"
-export VITE_API_BASE_URL="https://api.routereachpro.com"  # or your ALB URL initially
+export VITE_API_BASE_URL="https://api.routereachpro.com/api"  # include /api path
 export SUBNET_IDS="subnet-xxxxx,subnet-yyyyy"  # Get from VPC console
 export SG_IDS="sg-zzzzz"  # Security group for ECS tasks
 ```
@@ -356,18 +360,18 @@ The script will:
 
 ## Verification Checklist
 
-- [ ] RDS database is accessible from your IP
-- [ ] S3 buckets are created and versioning enabled
-- [ ] ECR repository created
-- [ ] IAM roles attached (execution + task)
-- [ ] ECS cluster created
-- [ ] Secrets Manager secret created
-- [ ] ALB created and health checks passing
-- [ ] SSL certificate validated in ACM
-- [ ] `./deploy/deploy.sh --migrate` completed successfully
-- [ ] ECS service is running (check AWS Console)
-- [ ] Frontend is served from CloudFront/S3
-- [ ] Backend API responds to requests
+- [x] RDS database is accessible from your IP
+- [x] S3 buckets are created and versioning enabled
+- [x] ECR repository created
+- [x] IAM roles attached (execution + task)
+- [x] ECS cluster created
+- [x] Secrets Manager secret created
+- [x] ALB created and health checks passing
+- [x] SSL certificate validated in ACM
+- [x] `./deploy/deploy.sh --migrate` completed successfully
+- [x] ECS service is running (check AWS Console)
+- [x] Frontend is served from CloudFront/S3
+- [x] Backend API responds to requests
 
 ---
 
@@ -401,4 +405,4 @@ The script will:
 
 ---
 
-**Ready to proceed?** Let me know which phase you'd like to start with, and I'll guide you through each step with exact commands.
+For current production verification details, see `docs/DEPLOYMENT_READINESS_REPORT.md` and `docs/PHASE7_DEPLOYMENT.md`.
