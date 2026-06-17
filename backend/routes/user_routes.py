@@ -10,11 +10,23 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models.user import User
 from models.audit_log import AuditLog
+from sqlalchemy.exc import IntegrityError
 from utils.decorators import admin_required
 from utils.validators import validate_email, validate_password
 from utils.constants import USER_ROLES
 
 user_bp = Blueprint("users", __name__)
+
+
+def _normalize_optional_text(value):
+    """Normalize optional text payload fields to DB-safe strings or None."""
+    if value is None:
+        return None
+    if isinstance(value, list):
+        parts = [str(v).strip() for v in value if str(v).strip()]
+        return ",".join(parts) if parts else None
+    text = str(value).strip()
+    return text or None
 
 
 @user_bp.route("", methods=["GET"])
@@ -89,11 +101,18 @@ def create_user():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    first_name = data.get("first_name", "").strip()
-    last_name = data.get("last_name", "").strip()
-    email = data.get("email", "").strip().lower()
+    first_name = data.get("first_name", "")
+    last_name = data.get("last_name", "")
+    email = data.get("email", "")
     password = data.get("password", "")
     role = data.get("role", "oa_user")
+
+    if not all(isinstance(v, str) for v in [first_name, last_name, email, password]):
+        return jsonify({"error": "First name, last name, email, and password must be text values."}), 400
+
+    first_name = first_name.strip()
+    last_name = last_name.strip()
+    email = email.strip().lower()
 
     if not all([first_name, last_name, email, password]):
         return jsonify({"error": "First name, last name, email, and password are required."}), 400
@@ -115,14 +134,14 @@ def create_user():
         first_name=first_name,
         last_name=last_name,
         email=email,
-        phone=data.get("phone", "").strip() or None,
+        phone=_normalize_optional_text(data.get("phone")),
         role=role,
-        organization_name=data.get("organization_name", "").strip() or None,
-        assigned_region=data.get("assigned_region"),
-        assigned_states=data.get("assigned_states"),
-        assigned_counties=data.get("assigned_counties"),
-        assigned_cities=data.get("assigned_cities"),
-        assigned_zip_codes=data.get("assigned_zip_codes"),
+        organization_name=_normalize_optional_text(data.get("organization_name")),
+        assigned_region=_normalize_optional_text(data.get("assigned_region")),
+        assigned_states=_normalize_optional_text(data.get("assigned_states")),
+        assigned_counties=_normalize_optional_text(data.get("assigned_counties")),
+        assigned_cities=_normalize_optional_text(data.get("assigned_cities")),
+        assigned_zip_codes=_normalize_optional_text(data.get("assigned_zip_codes")),
     )
     user.set_password(password)
 
@@ -138,7 +157,14 @@ def create_user():
         description=f"Created user account for {user.email} with role {role}.",
     )
     db.session.add(log)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        if User.query.filter_by(email=email).first():
+            return jsonify({"error": "An account with this email already exists."}), 409
+        return jsonify({"error": "Could not create user due to invalid or conflicting data."}), 400
 
     return jsonify({"message": "User created successfully.", "user": user.to_dict()}), 201
 
