@@ -6,6 +6,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import logo from "../assets/outreachroute_pro_logo.svg";
 
 const ADMIN_ROLES = new Set([
   "master_admin",
@@ -57,8 +58,7 @@ export default function Sidebar({ isOpen, onClose }) {
       <nav className={`sidebar ${isOpen ? "sidebar-open" : ""}`}>
         {/* Logo */}
         <div className="sidebar-logo">
-          <span className="sidebar-logo-icon">🎯</span>
-          <span className="sidebar-logo-text">OutreachRoute Pro</span>
+          <img src={logo} alt="OutreachRoute Pro" className="sidebar-logo-img" />
         </div>
 
         {/* Nav Links */}

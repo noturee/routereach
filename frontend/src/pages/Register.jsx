@@ -10,6 +10,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/apiClient.js";
 import { validate_email_format, validate_password_strength } from "../utils/formValidators.js";
+import logo from "../assets/outreachroute_pro_logo.svg";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -93,9 +94,9 @@ export default function Register() {
       <div className="login-card" style={{ maxWidth: 480 }}>
         {/* Header */}
         <div className="login-header">
-          <div className="login-logo">🎯</div>
+          <img src={logo} alt="OutreachRoute Pro" className="login-logo-img" />
           <h1 className="login-title">Create Account</h1>
-          <p className="login-subtitle">OutreachRoute Pro — OA User Registration</p>
+          <p className="login-subtitle">Register as an Outreach Associate</p>
         </div>
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}

@@ -5,6 +5,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import logo from "../assets/outreachroute_pro_logo.svg";
 
 export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuth();
@@ -23,7 +24,7 @@ export default function Navbar({ onMenuToggle }) {
           <span className="hamburger" />
           <span className="hamburger" />
         </button>
-        <span className="navbar-brand">OutreachRoute Pro</span>
+        <img src={logo} alt="OutreachRoute Pro" className="navbar-logo" />
       </div>
 
       <div className="navbar-right">

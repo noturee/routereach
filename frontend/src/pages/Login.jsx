@@ -5,6 +5,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
+import logo from "../assets/outreachroute_pro_logo.svg";
 
 export default function Login() {
   const { login, isAuthenticated, isAdmin } = useAuth();
@@ -51,8 +52,7 @@ export default function Login() {
       <div className="login-card">
         {/* Header */}
         <div className="login-header">
-          <div className="login-logo">🎯</div>
-          <h1 className="login-title">OutreachRoute Pro</h1>
+          <img src={logo} alt="OutreachRoute Pro" className="login-logo-img" />
           <p className="login-subtitle">Sign in to your account</p>
         </div>
 
