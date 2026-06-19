@@ -5,7 +5,7 @@
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
-import logo from "../assets/outreachroute_pro_logo.svg";
+import logo from "../assets/outreachroute_primary_logo.png";
 
 export default function Login() {
   const { login, isAuthenticated, isAdmin } = useAuth();
@@ -32,10 +32,16 @@ export default function Login() {
     const result = await login(email.trim(), password);
 
     if (result.success) {
-      const { user } = result;
+      const loggedInUser = result.user;
+      if (!loggedInUser) {
+        setError("Signed in, but your profile could not be loaded. Please try again.");
+        setLoading(false);
+        return;
+      }
+
       const isAdminUser = [
         "master_admin", "national_admin", "regional_admin", "state_admin", "local_admin",
-      ].includes(user.role);
+      ].includes(loggedInUser.role);
 
       const destination = location.state?.from?.pathname ||
         (isAdminUser ? "/admin-dashboard" : "/dashboard");

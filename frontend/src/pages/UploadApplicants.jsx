@@ -13,17 +13,31 @@ import apiClient from "../api/apiClient.js";
 
 // System fields the user can map to
 const SYSTEM_FIELDS = [
-  { key: "first_name",         label: "First Name",         required: true  },
-  { key: "last_name",          label: "Last Name",          required: true  },
+  { key: "tracking_number",      label: "Application Tracking Number", required: false },
+  { key: "applicant_name",       label: "Applicant Name",              required: false },
+  { key: "first_name",         label: "First Name",         required: false },
+  { key: "middle_name",        label: "Middle Name",        required: false },
+  { key: "last_name",          label: "Last Name",          required: false },
   { key: "phone",              label: "Phone",              required: false },
   { key: "email",              label: "Email",              required: false },
   { key: "age",                label: "Age",                required: false },
+  { key: "urgency",            label: "Urgency",            required: false },
+  { key: "case_status",        label: "Case Status",        required: false },
+  { key: "workflow_milestone", label: "Workflow Milestone", required: false },
+  { key: "case_creation_date", label: "Case Creation Date", required: false },
+  { key: "submitted_application_questionnaire", label: "Submitted Application Questionnaire", required: false },
+  { key: "submitted_health_questionnaire", label: "Submitted Health Questionnaire", required: false },
   { key: "date_of_birth",      label: "Date of Birth",      required: false },
   { key: "address",            label: "Street Address",     required: false },
   { key: "city",               label: "City",               required: false },
   { key: "state",              label: "State",              required: false },
   { key: "zip_code",           label: "ZIP Code",           required: false },
   { key: "county",             label: "County",             required: false },
+  { key: "assigned_oa_name",   label: "Assigned To",        required: false },
+  { key: "import_source",      label: "Import Source",      required: false },
+  { key: "import_batch_id",    label: "Import Batch ID",    required: false },
+  { key: "center_status",      label: "Center Status",      required: false },
+  { key: "days_in_queue",      label: "Days in Queue",      required: false },
   { key: "trade_interest",     label: "Trade Interest",     required: false },
   { key: "education_status",   label: "Education Status",   required: false },
   { key: "application_status", label: "Application Status", required: false },
@@ -49,6 +63,8 @@ export default function UploadApplicants() {
   const [file, setFile]         = useState(null);
   const [headers, setHeaders]   = useState([]);
   const [previewRows, setRows]  = useState([]);
+  const [normalizedRows, setNormalizedRows] = useState([]);
+  const [cityValues, setCityValues] = useState([]);
   const [totalRows, setTotal]   = useState(0);
   const [mapping, setMapping]   = useState({});   // { system_field: column_header }
 
@@ -59,7 +75,16 @@ export default function UploadApplicants() {
 
   // Results
   const [result, setResult]     = useState(null);   // { imported, skipped, errors }
+  const [importWarnings, setImportWarnings] = useState([]);
   const [error, setError]       = useState("");
+  const [bulkCity, setBulkCity] = useState("");
+  const [bulkZip, setBulkZip] = useState("");
+
+  const normalizePreviewRow = (row) => ({
+    ...row,
+    row_number: row.row_number ?? row.row_num,
+    warning_messages: row.warning_messages ?? row.warnings ?? [],
+  });
 
   useEffect(() => {
     if (isAdmin) {
@@ -99,6 +124,8 @@ export default function UploadApplicants() {
       });
       setHeaders(res.data.headers);
       setRows(res.data.preview_rows);
+      setNormalizedRows((res.data.normalized_rows || res.data.normalized_preview_rows || []).map(normalizePreviewRow));
+      setCityValues(res.data.city_values || []);
       setTotal(res.data.total_rows);
       setMapping(res.data.suggested_mapping || {});
       setStep("mapping");
@@ -123,8 +150,10 @@ export default function UploadApplicants() {
   // ── Step 2 → 3: Import ────────────────────────────────────────────────────
 
   const handleImport = async () => {
-    if (!mapping.first_name || !mapping.last_name) {
-      setError("First Name and Last Name columns must be mapped.");
+    const hasSplitName = mapping.first_name && mapping.last_name;
+    const hasApplicantName = Boolean(mapping.applicant_name || mapping.full_name_original);
+    if (!hasSplitName && !hasApplicantName) {
+      setError("Map Applicant Name, or map both First Name and Last Name.");
       return;
     }
     setError("");
@@ -135,12 +164,18 @@ export default function UploadApplicants() {
       fd.append("file", file);
       fd.append("column_mapping", JSON.stringify(mapping));
       fd.append("skip_duplicates", skipDups ? "true" : "false");
+      const rowOverrides = Object.fromEntries(
+        normalizedRows.map((row) => [String(row.row_number ?? row.row_num), row])
+      );
+      fd.append("row_overrides", JSON.stringify(rowOverrides));
+      fd.append("city_zip_updates", JSON.stringify(bulkZip && bulkCity ? { [bulkCity]: bulkZip } : {}));
       if (oaId) fd.append("assigned_oa_id", oaId);
 
       const res = await apiClient.post("/uploads/applicants/import", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setResult(res.data);
+      setImportWarnings(res.data.warnings || []);
       setStep("result");
     } catch (err) {
       setError(err.response?.data?.error || "Import failed.");
@@ -150,7 +185,27 @@ export default function UploadApplicants() {
 
   const reset = () => {
     setStep("select"); setFile(null); setHeaders([]); setRows([]);
-    setTotal(0); setMapping({}); setResult(null); setError("");
+    setNormalizedRows([]); setCityValues([]);
+    setTotal(0); setMapping({}); setResult(null); setImportWarnings([]); setError("");
+    setBulkCity(""); setBulkZip("");
+  };
+
+  const updateRowField = (rowNumber, field, value) => {
+    setNormalizedRows((prev) => prev.map((row) => (
+      (row.row_number ?? row.row_num) === rowNumber ? { ...row, [field]: value } : row
+    )));
+  };
+
+  const applyBulkZipByCity = () => {
+    const city = bulkCity.trim();
+    const zip = bulkZip.trim();
+    if (!city || !zip) return;
+    setNormalizedRows((prev) => prev.map((row) => {
+      if ((row.city || "").trim().toLowerCase() === city.toLowerCase() && !(row.zip_code || "").trim()) {
+        return { ...row, zip_code: zip, needs_zip_code: false };
+      }
+      return row;
+    }));
   };
 
   // ── Step indicator ────────────────────────────────────────────────────────
@@ -237,8 +292,8 @@ export default function UploadApplicants() {
                 </span>
               ))}
             </div>
-            <p style={{ fontSize: "0.78rem", color: "var(--color-gray-400)", marginTop: 8 }}>
-              * Required. Column headers don't need to match exactly — the system auto-detects common variations.
+              <p style={{ fontSize: "0.78rem", color: "var(--color-gray-400)", marginTop: 8 }}>
+              Applicant Name is required, but it may come from either a single full-name column or separate first/last name columns. Other fields can be filled manually after import.
             </p>
             <a
               href="/sample_applicant_upload.csv"
@@ -282,7 +337,7 @@ export default function UploadApplicants() {
                     {required && <span style={{ color: "var(--color-red)", marginLeft: 2 }}>*</span>}
                   </label>
                   <select
-                    className={`form-select ${required && !mapping[key] ? "form-select-error" : ""}`}
+                    className={`form-select ${required && !mapping[key] && !["first_name", "last_name"].includes(key) ? "form-select-error" : ""}`}
                     value={mapping[key] || ""}
                     onChange={(e) => setMapField(key, e.target.value)}
                   >
@@ -333,30 +388,63 @@ export default function UploadApplicants() {
           {/* Preview table */}
           <div style={{ marginBottom: 20 }}>
             <div className="section-title" style={{ marginBottom: 8 }}>
-              Preview (first {Math.min(previewRows.length, 25)} rows)
+              Editable Import Preview ({normalizedRows.length} rows)
+            </div>
+            <div className="form-row" style={{ marginBottom: 10 }}>
+              <select className="form-select" value={bulkCity} onChange={(e) => setBulkCity(e.target.value)} style={{ minWidth: 220 }}>
+                <option value="">Select City/Town for bulk ZIP</option>
+                {cityValues.map((city) => <option key={city} value={city}>{city}</option>)}
+              </select>
+              <input
+                className="form-input"
+                placeholder="ZIP Code"
+                value={bulkZip}
+                onChange={(e) => setBulkZip(e.target.value)}
+                style={{ maxWidth: 140 }}
+              />
+              <button type="button" className="btn btn-secondary btn-sm" onClick={applyBulkZipByCity}>
+                Apply ZIP to City
+              </button>
             </div>
             <div className="data-table-wrapper" style={{ maxHeight: 320, overflowY: "auto" }}>
               <table className="data-table">
                 <thead>
                   <tr>
-                    {headers.map((h) => (
-                      <th key={h} className="data-table-th">{h}</th>
-                    ))}
+                    <th className="data-table-th">Row</th>
+                    <th className="data-table-th">First Name</th>
+                    <th className="data-table-th">Middle Name</th>
+                    <th className="data-table-th">Last Name</th>
+                    <th className="data-table-th">City</th>
+                    <th className="data-table-th">State</th>
+                    <th className="data-table-th">ZIP Code</th>
+                    <th className="data-table-th">Assigned OA</th>
+                    <th className="data-table-th">Status</th>
+                    <th className="data-table-th">Warnings</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {previewRows.map((row, i) => (
-                    <tr key={i} className="data-table-row">
-                      {headers.map((h) => (
-                        <td key={h} className="data-table-td">
-                          {row[h] || ""}
-                        </td>
-                      ))}
+                  {normalizedRows.slice(0, 150).map((row) => (
+                    <tr key={row.row_number ?? row.row_num} className="data-table-row">
+                      <td className="data-table-td">{row.row_number ?? row.row_num}</td>
+                      <td className="data-table-td"><input className="form-input" value={row.first_name || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "first_name", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.middle_name || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "middle_name", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.last_name || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "last_name", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.city || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "city", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.state || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "state", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.zip_code || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "zip_code", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.assigned_oa_name || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "assigned_oa_name", e.target.value)} /></td>
+                      <td className="data-table-td"><input className="form-input" value={row.case_status || ""} onChange={(e) => updateRowField(row.row_number ?? row.row_num, "case_status", e.target.value)} /></td>
+                      <td className="data-table-td" style={{ color: "var(--color-yellow)" }}>{(row.warning_messages || []).join(", ") || "—"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            {normalizedRows.length > 150 && (
+              <div style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--color-gray-500)" }}>
+                Showing first 150 rows in editor. All rows are still included in import.
+              </div>
+            )}
           </div>
 
           {/* Import button */}
@@ -367,7 +455,7 @@ export default function UploadApplicants() {
             <button
               className="btn btn-primary"
               onClick={handleImport}
-              disabled={step === "importing" || !mapping.first_name || !mapping.last_name}
+              disabled={step === "importing" || (!(mapping.first_name && mapping.last_name) && !(mapping.applicant_name || mapping.full_name_original))}
             >
               {step === "importing"
                 ? `Importing ${totalRows} row${totalRows !== 1 ? "s" : ""}…`
@@ -411,6 +499,30 @@ export default function UploadApplicants() {
                       <tr key={i}>
                         <td className="data-table-td">{e.row}</td>
                         <td className="data-table-td" style={{ color: "var(--color-red)" }}>{e.reason}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {importWarnings.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div className="section-title" style={{ marginBottom: 8 }}>Validation Warnings</div>
+              <div className="data-table-wrapper">
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th className="data-table-th">Row #</th>
+                      <th className="data-table-th">Warnings</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {importWarnings.map((w, i) => (
+                      <tr key={i}>
+                        <td className="data-table-td">{w.row}</td>
+                        <td className="data-table-td" style={{ color: "var(--color-yellow)" }}>{(w.warnings || []).join(", ")}</td>
                       </tr>
                     ))}
                   </tbody>

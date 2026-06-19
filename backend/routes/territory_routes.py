@@ -110,7 +110,7 @@ def create_territory():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    territory_name = data.get("territory_name", "").strip()
+    territory_name = (data.get("territory_name") or "").strip()
     territory_type = data.get("territory_type", "county")
 
     if not territory_name:
@@ -133,11 +133,11 @@ def create_territory():
         territory_name=territory_name,
         territory_type=territory_type,
         country=data.get("country", "United States"),
-        region=data.get("region", "").strip() or None,
-        state=data.get("state", "").strip() or None,
-        county=data.get("county", "").strip() or None,
-        city=data.get("city", "").strip() or None,
-        zip_code=data.get("zip_code", "").strip() or None,
+        region=(data.get("region") or "").strip() or None,
+        state=(data.get("state") or "").strip() or None,
+        county=(data.get("county") or "").strip() or None,
+        city=(data.get("city") or "").strip() or None,
+        zip_code=(data.get("zip_code") or "").strip() or None,
         created_by_user_id=current_user_id,
     )
     db.session.add(territory)

@@ -1,7 +1,5 @@
 /**
  * ApplicantProfile — Full tabbed profile for a single applicant.
- * Phase 4 implementation: Overview, Status History, Documents.
- * Case Notes (Phase 6), Messages (Phase 12), Meetings (Phase 14) stub tabs.
  */
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
@@ -40,6 +38,26 @@ export default function ApplicantProfile() {
   const [caseNotes, setCaseNotes]       = useState([]);
   const [caseNotesLoading, setCNL]      = useState(false);
   const [showCaseNoteForm, setShowCNF]  = useState(false);
+
+  // Messages
+  const [messages, setMessages] = useState([]);
+  const [messagesLoading, setML] = useState(false);
+  const [messageMethod, setMessageMethod] = useState("email");
+  const [messageSubject, setMessageSubject] = useState("");
+  const [messageBody, setMessageBody] = useState("");
+
+  // Meetings
+  const [meetings, setMeetings] = useState([]);
+  const [meetingsLoading, setMeetingsLoading] = useState(false);
+  const [meetingForm, setMeetingForm] = useState({
+    meeting_title: "",
+    meeting_type: "Initial interview",
+    meeting_date: "",
+    meeting_time: "",
+    platform: "zoom",
+    meeting_link: "",
+    notes: "",
+  });
 
   // Modals
   const [showEdit, setShowEdit]         = useState(false);
@@ -114,6 +132,26 @@ export default function ApplicantProfile() {
     }
   }, [activeTab, applicant, id, caseNotes.length]);
 
+  useEffect(() => {
+    if (activeTab === "Messages" && applicant) {
+      setML(true);
+      apiClient.get(`/messages/applicant/${id}`)
+        .then((r) => setMessages(r.data.messages || []))
+        .catch(() => setMessages([]))
+        .finally(() => setML(false));
+    }
+  }, [activeTab, applicant, id]);
+
+  useEffect(() => {
+    if (activeTab === "Meetings" && applicant) {
+      setMeetingsLoading(true);
+      apiClient.get(`/meetings/applicant/${id}`)
+        .then((r) => setMeetings(r.data.meetings || []))
+        .catch(() => setMeetings([]))
+        .finally(() => setMeetingsLoading(false));
+    }
+  }, [activeTab, applicant, id]);
+
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   const handleEdit = async (payload) => {
@@ -178,6 +216,62 @@ export default function ApplicantProfile() {
       flash$("Case note deleted.");
     } catch (err) {
       flash$(err.response?.data?.error || "Failed to delete.", "error");
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageBody.trim()) {
+      flash$("Message body is required.", "error");
+      return;
+    }
+    const endpoint = messageMethod === "text"
+      ? "/messages/send-text"
+      : messageMethod === "both"
+      ? "/messages/send-both"
+      : "/messages/send-email";
+
+    try {
+      await apiClient.post(endpoint, {
+        applicant_id: Number(id),
+        subject: messageSubject,
+        message_body: messageBody,
+      });
+      setMessageBody("");
+      const refreshed = await apiClient.get(`/messages/applicant/${id}`);
+      setMessages(refreshed.data.messages || []);
+      flash$("Message recorded.");
+    } catch (err) {
+      flash$(err.response?.data?.error || "Failed to send message.", "error");
+    }
+  };
+
+  const handleCreateMeeting = async () => {
+    if (!meetingForm.meeting_title.trim() || !meetingForm.meeting_date) {
+      flash$("Meeting title and date are required.", "error");
+      return;
+    }
+    try {
+      await apiClient.post("/meetings", {
+        applicant_id: Number(id),
+        ...meetingForm,
+        meeting_time: meetingForm.meeting_time || null,
+        meeting_link: meetingForm.meeting_link || null,
+        notes: meetingForm.notes || null,
+      });
+      setMeetingForm({
+        meeting_title: "",
+        meeting_type: "Initial interview",
+        meeting_date: "",
+        meeting_time: "",
+        platform: "zoom",
+        meeting_link: "",
+        notes: "",
+      });
+      const refreshed = await apiClient.get(`/meetings/applicant/${id}`);
+      setMeetings(refreshed.data.meetings || []);
+      flash$("Meeting scheduled.");
+    } catch (err) {
+      flash$(err.response?.data?.error || "Failed to schedule meeting.", "error");
     }
   };
 
@@ -325,6 +419,7 @@ export default function ApplicantProfile() {
             <InfoRow label="Date of Birth"     value={formatDate(applicant.date_of_birth)} />
             <InfoRow label="Education"         value={applicant.education_status} />
             <InfoRow label="Trade Interest"    value={applicant.trade_interest} />
+            <InfoRow label="Campus"            value={applicant.campus} />
           </div>
 
           {/* Address */}
@@ -512,19 +607,114 @@ export default function ApplicantProfile() {
         </div>
       )}
 
-      {/* ── Messages Tab (Phase 12) ──────────────────────────────────────── */}
+      {/* ── Messages Tab ───────────────────────────────────────────────────── */}
       {activeTab === "Messages" && (
-        <div className="empty-state">
-          <span className="empty-state-icon">💬</span>
-          <p>Messaging is available in Phase 12.</p>
+        <div>
+          <div className="form-card" style={{ marginBottom: 12 }}>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Send Via</label>
+                <select className="form-select" value={messageMethod} onChange={(e) => setMessageMethod(e.target.value)}>
+                  <option value="email">Email</option>
+                  <option value="text">Text</option>
+                  <option value="both">Both</option>
+                </select>
+              </div>
+              {(messageMethod === "email" || messageMethod === "both") && (
+                <div className="form-group" style={{ flex: 2 }}>
+                  <label className="form-label">Subject</label>
+                  <input className="form-input" value={messageSubject} onChange={(e) => setMessageSubject(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <div className="form-group">
+              <label className="form-label">Message</label>
+              <textarea className="form-textarea" rows={3} value={messageBody} onChange={(e) => setMessageBody(e.target.value)} />
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={handleSendMessage}>Send Message</button>
+            </div>
+          </div>
+
+          {messagesLoading ? (
+            <div className="loading-screen" style={{ minHeight: 120 }}>
+              <div className="loading-spinner" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="empty-state"><p>No messages yet.</p></div>
+          ) : (
+            <div>
+              {messages.map((m) => (
+                <div key={m.id} className="form-card" style={{ marginBottom: 10 }}>
+                  <div><strong>{(m.message_type || "message").toUpperCase()}</strong> · {m.delivery_status || "unknown"}</div>
+                  {m.subject && <div style={{ marginTop: 4 }}><strong>Subject:</strong> {m.subject}</div>}
+                  <div style={{ marginTop: 6 }}>{m.message_body}</div>
+                  <div className="text-muted" style={{ marginTop: 6, fontSize: "0.8rem" }}>{formatDateTime(m.created_at)}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* ── Meetings Tab (Phase 14) ──────────────────────────────────────── */}
+      {/* ── Meetings Tab ───────────────────────────────────────────────────── */}
       {activeTab === "Meetings" && (
-        <div className="empty-state">
-          <span className="empty-state-icon">📅</span>
-          <p>Meetings are available in Phase 14.</p>
+        <div>
+          <div className="form-card" style={{ marginBottom: 12 }}>
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 2 }}>
+                <label className="form-label">Title</label>
+                <input className="form-input" value={meetingForm.meeting_title} onChange={(e) => setMeetingForm((f) => ({ ...f, meeting_title: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Type</label>
+                <input className="form-input" value={meetingForm.meeting_type} onChange={(e) => setMeetingForm((f) => ({ ...f, meeting_type: e.target.value }))} />
+              </div>
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <input className="form-input" type="date" value={meetingForm.meeting_date} onChange={(e) => setMeetingForm((f) => ({ ...f, meeting_date: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Time</label>
+                <input className="form-input" type="time" value={meetingForm.meeting_time} onChange={(e) => setMeetingForm((f) => ({ ...f, meeting_time: e.target.value }))} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Platform</label>
+                <select className="form-select" value={meetingForm.platform} onChange={(e) => setMeetingForm((f) => ({ ...f, platform: e.target.value }))}>
+                  <option value="zoom">Zoom</option>
+                  <option value="teams">Teams</option>
+                  <option value="google_meet">Google Meet</option>
+                  <option value="phone">Phone</option>
+                  <option value="in_person">In Person</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button className="btn btn-primary" onClick={handleCreateMeeting}>Schedule Meeting</button>
+            </div>
+          </div>
+
+          {meetingsLoading ? (
+            <div className="loading-screen" style={{ minHeight: 120 }}>
+              <div className="loading-spinner" />
+            </div>
+          ) : meetings.length === 0 ? (
+            <div className="empty-state"><p>No meetings scheduled.</p></div>
+          ) : (
+            <div>
+              {meetings.map((m) => (
+                <div key={m.id} className="form-card" style={{ marginBottom: 10 }}>
+                  <div><strong>{m.meeting_title}</strong> · {m.status}</div>
+                  <div style={{ marginTop: 4 }}>{formatDate(m.meeting_date)} {m.meeting_time ? `at ${String(m.meeting_time).slice(0,5)}` : ""}</div>
+                  <div style={{ marginTop: 4 }}>Platform: {m.platform || "-"}</div>
+                  {m.notes && <div style={{ marginTop: 6 }}>{m.notes}</div>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

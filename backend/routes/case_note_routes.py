@@ -6,7 +6,7 @@ Auto-generated notes are written by applicant_routes when status changes occur.
 Registered at /api prefix → endpoints: /api/case-notes, /api/case-notes/:id
 """
 
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from extensions import db
 from models.case_note import CaseNote
@@ -17,6 +17,14 @@ from utils.permissions import can_view_applicant, can_edit_applicant, is_admin
 from utils.constants import CASE_NOTE_TYPES
 
 case_note_bp = Blueprint("case_notes", __name__)
+
+
+@case_note_bp.route("/public-config", methods=["GET"])
+def public_config():
+    """Return frontend-safe runtime configuration."""
+    return jsonify({
+        "google_maps_api_key": current_app.config.get("GOOGLE_MAPS_API_KEY", ""),
+    }), 200
 
 
 def get_current_user():

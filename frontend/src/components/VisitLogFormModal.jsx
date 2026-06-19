@@ -102,6 +102,7 @@ export default function VisitLogFormModal({
   };
 
   const lockedLocation = !!locationId;
+  const hasSelectableLocations = lockedLocation || locations.length > 0;
 
   return (
     <Modal title={editing ? "Edit Visit Log" : "Log Outreach Visit"} size="lg" onClose={onClose}>
@@ -110,6 +111,11 @@ export default function VisitLogFormModal({
 
         {/* Location & Date */}
         <div className="form-section-label">Visit Details</div>
+        {!hasSelectableLocations && (
+          <div className="alert alert-error" style={{ marginBottom: 12 }}>
+            No active locations are available to log a visit.
+          </div>
+        )}
         <div className="form-row">
           <div className="form-group" style={{ flex: 2 }}>
             <label className="form-label">Location *</label>
@@ -118,7 +124,7 @@ export default function VisitLogFormModal({
                 {locationName || `Location #${locationId}`}
               </div>
             ) : (
-              <select className="form-select" value={form.outreach_location_id} onChange={set("outreach_location_id")} required>
+              <select className="form-select" value={form.outreach_location_id} onChange={set("outreach_location_id")} required disabled={!hasSelectableLocations}>
                 <option value="">Select location...</option>
                 {locations.map((l) => (
                   <option key={l.id} value={l.id}>{l.location_name} — {l.city}, {l.state}</option>
@@ -209,7 +215,7 @@ export default function VisitLogFormModal({
 
         <div className="form-actions">
           <button type="button" className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving}>
+          <button type="submit" className="btn btn-primary" disabled={saving || !hasSelectableLocations}>
             {saving ? "Saving..." : editing ? "Save Changes" : "Log Visit"}
           </button>
         </div>

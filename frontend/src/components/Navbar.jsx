@@ -5,7 +5,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
-import logo from "../assets/outreachroute_pro_logo.svg";
+import logo from "../assets/outreachroute_compact_logo.png";
 
 export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuth();

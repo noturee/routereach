@@ -6,7 +6,7 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
-import logo from "../assets/outreachroute_pro_logo.svg";
+import logo from "../assets/outreachroute_compact_logo.png";
 
 const ADMIN_ROLES = new Set([
   "master_admin",

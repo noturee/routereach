@@ -37,6 +37,7 @@ def create_app(config_name=None):
             user,
             territory,
             applicant,
+            applicant_report,
             applicant_document,
             application_status_history,
             outreach_location,
@@ -67,6 +68,7 @@ def create_app(config_name=None):
     from routes.report_routes import report_bp
     from routes.monthly_report_routes import monthly_report_bp
     from routes.performance_routes import performance_bp
+    from routes.form_104_routes import form_104_bp
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/users")
@@ -82,6 +84,7 @@ def create_app(config_name=None):
     app.register_blueprint(report_bp, url_prefix="/api/reports")
     app.register_blueprint(monthly_report_bp, url_prefix="/api/monthly-reports")
     app.register_blueprint(performance_bp, url_prefix="/api/performance")
+    app.register_blueprint(form_104_bp, url_prefix="/api")
 
     # ── Health Check ─────────────────────────────────────────────────────────
     @app.route("/api/health")

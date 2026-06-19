@@ -9,8 +9,20 @@
 
 import axios from "axios";
 
+const resolveApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  if (typeof window !== "undefined" && window.location.hostname === "routereachpro.com") {
+    return "https://api.routereachpro.com/api";
+  }
+
+  return "/api";
+};
+
 const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
+  baseURL: resolveApiBaseUrl(),
   headers: {
     "Content-Type": "application/json",
   },

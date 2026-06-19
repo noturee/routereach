@@ -70,8 +70,19 @@ img { max-width: 100%; }
 
 /* ── Navbar ────────────────────────────────────────────────────────────────── */
 .navbar { position: fixed; top: 0; left: 0; right: 0; z-index: 100; height: var(--navbar-height); background: var(--color-navy); color: white; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; box-shadow: var(--box-shadow-md); }
-.navbar-left { display: flex; align-items: center; gap: 16px; }
-.navbar-logo { height: 40px; max-width: 180px; object-fit: contain; }
+.navbar-left { display: flex; align-items: center; gap: 12px; }
+.navbar-logo {
+  display: block;
+  height: 42px;
+  width: auto;
+  max-width: 220px;
+  object-fit: contain;
+  object-position: center;
+  background: #ffffff;
+  border: 1px solid rgba(26,39,68,0.12);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
 .navbar-brand { font-weight: 700; font-size: 1.1rem; color: var(--color-gold); letter-spacing: 0.5px; }
 .navbar-right { display: flex; align-items: center; gap: 16px; }
 .navbar-user { display: flex; flex-direction: column; align-items: flex-end; font-size: 0.85rem; }
@@ -83,8 +94,19 @@ img { max-width: 100%; }
 /* ── Sidebar ───────────────────────────────────────────────────────────────── */
 .sidebar { position: fixed; top: var(--navbar-height); left: 0; bottom: 0; width: var(--sidebar-width); background: var(--color-navy); color: white; display: flex; flex-direction: column; z-index: 90; overflow-y: auto; transition: transform var(--transition); }
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 89; }
-.sidebar-logo { display: flex; align-items: center; justify-content: center; padding: 16px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.sidebar-logo-img { height: 48px; max-width: 100%; object-fit: contain; }
+.sidebar-logo { display: flex; align-items: center; justify-content: center; padding: 14px 10px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+.sidebar-logo-img {
+  display: block;
+  height: 48px;
+  width: auto;
+  max-width: 228px;
+  object-fit: contain;
+  object-position: center;
+  background: #ffffff;
+  border: 1px solid rgba(26,39,68,0.12);
+  border-radius: 8px;
+  padding: 3px 8px;
+}
 .sidebar-logo-icon { font-size: 1.5rem; }
 .sidebar-logo-text { font-weight: 700; font-size: 0.95rem; color: var(--color-gold); }
 .sidebar-nav { flex: 1; padding: 8px 0; }
@@ -108,6 +130,8 @@ img { max-width: 100%; }
   .sidebar-open { transform: translateX(0); }
   .sidebar-overlay { display: block; }
   .main-content { margin-left: 0; }
+  .navbar-logo { height: 36px; max-width: 184px; padding: 2px 6px; }
+  .sidebar-logo-img { height: 42px; max-width: 205px; }
 }
 
 /* ── Page Header ───────────────────────────────────────────────────────────── */
@@ -218,6 +242,7 @@ img { max-width: 100%; }
 .login-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%); padding: 20px; }
 .login-card { width: 100%; max-width: 400px; background: white; border-radius: 12px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
 .login-head-img { height: 80px; max-width: 100%; object-fit: contain; margin-bottom: 16px; }
+.login-logo-img { display: block; width: 100%; max-width: 320px; height: auto; margin: 0 auto 12px; object-fit: contain; }
 .login-logo { font-size: 3rem; margin-bottom: 12px; }
 .login-title { font-size: 1.5rem; font-weight: 700; color: var(--color-navy); }
 .login-subtitle { color: var(--color-gray-500); font-size: 0.9rem; margin-top: 12px; }

@@ -25,6 +25,34 @@ const STATUS_FILTERS = [
   "Closed - Court / Legal Pending","Paused / Holding","Reapply Later",
 ];
 
+const IMPORT_FILTERS = [
+  { key: "", label: "Import Filters" },
+  { key: "needs_zip_code", label: "Needs ZIP Code" },
+  { key: "open", label: "Open" },
+  { key: "withdrawn", label: "Withdrawn" },
+  { key: "application_started", label: "Application Started" },
+  { key: "application_submitted", label: "Application Submitted" },
+  { key: "application_verified", label: "Application Verified" },
+  { key: "expedited", label: "Expedited" },
+  { key: "standard", label: "Standard" },
+];
+
+const STATE_OPTIONS = [
+  ["Alabama", "AL"], ["Alaska", "AK"], ["Arizona", "AZ"], ["Arkansas", "AR"],
+  ["California", "CA"], ["Colorado", "CO"], ["Connecticut", "CT"], ["Delaware", "DE"],
+  ["Florida", "FL"], ["Georgia", "GA"], ["Hawaii", "HI"], ["Idaho", "ID"],
+  ["Illinois", "IL"], ["Indiana", "IN"], ["Iowa", "IA"], ["Kansas", "KS"],
+  ["Kentucky", "KY"], ["Louisiana", "LA"], ["Maine", "ME"], ["Maryland", "MD"],
+  ["Massachusetts", "MA"], ["Michigan", "MI"], ["Minnesota", "MN"], ["Mississippi", "MS"],
+  ["Missouri", "MO"], ["Montana", "MT"], ["Nebraska", "NE"], ["Nevada", "NV"],
+  ["New Hampshire", "NH"], ["New Jersey", "NJ"], ["New Mexico", "NM"], ["New York", "NY"],
+  ["North Carolina", "NC"], ["North Dakota", "ND"], ["Ohio", "OH"], ["Oklahoma", "OK"],
+  ["Oregon", "OR"], ["Pennsylvania", "PA"], ["Rhode Island", "RI"], ["South Carolina", "SC"],
+  ["South Dakota", "SD"], ["Tennessee", "TN"], ["Texas", "TX"], ["Utah", "UT"],
+  ["Vermont", "VT"], ["Virginia", "VA"], ["Washington", "WA"], ["West Virginia", "WV"],
+  ["Wisconsin", "WI"], ["Wyoming", "WY"],
+];
+
 const COLUMNS = [
   { key: "full_name",    label: "Name",      sortable: true, render: (r) => (
     <span style={{ fontWeight: 600 }}>{r.first_name} {r.last_name}</span>
@@ -67,6 +95,7 @@ export default function Applicants() {
 
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatus]     = useState("All Statuses");
+  const [importFilter, setImportFilter] = useState("");
   const [stateFilter, setState]       = useState("");
   const [showWithdrawn, setWithdrawn] = useState(false);
   const [showComplete, setComplete]   = useState(false);
@@ -90,9 +119,11 @@ export default function Applicants() {
       const params = new URLSearchParams({ page, per_page: perPage });
       if (search.trim()) params.set("search", search.trim());
       if (statusFilter !== "All Statuses") params.set("status", statusFilter);
+      if (importFilter) params.set("import_filter", importFilter);
       if (stateFilter) params.set("state", stateFilter);
       if (showWithdrawn) params.set("is_withdrawn", "true");
       if (showComplete) params.set("is_complete", "true");
+      if (isAdmin) params.set("sequence_by_user", "true");
 
       const res = await apiClient.get(`/applicants?${params}`);
       setApplicants(res.data.applicants || []);
@@ -102,7 +133,7 @@ export default function Applicants() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, statusFilter, stateFilter, showWithdrawn, showComplete]);
+  }, [page, search, statusFilter, importFilter, stateFilter, showWithdrawn, showComplete, isAdmin]);
 
   useEffect(() => { loadApplicants(); }, [loadApplicants]);
 
@@ -116,7 +147,7 @@ export default function Applicants() {
   }, [isAdmin]);
 
   // Reset to page 1 when filters change
-  useEffect(() => { setPage(1); }, [search, statusFilter, stateFilter, showWithdrawn, showComplete]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, importFilter, stateFilter, showWithdrawn, showComplete]);
 
   const handleCreate = async (payload) => {
     const res = await apiClient.post("/applicants", payload);
@@ -149,17 +180,14 @@ export default function Applicants() {
           <select className="form-select" value={statusFilter} onChange={(e) => setStatus(e.target.value)} style={{ minWidth: 180 }}>
             {STATUS_FILTERS.map((s) => <option key={s}>{s}</option>)}
           </select>
+          <select className="form-select" value={importFilter} onChange={(e) => setImportFilter(e.target.value)} style={{ minWidth: 190 }}>
+            {IMPORT_FILTERS.map((opt) => <option key={opt.key} value={opt.key}>{opt.label}</option>)}
+          </select>
           <select className="form-select" value={stateFilter} onChange={(e) => setState(e.target.value)} style={{ minWidth: 140 }}>
             <option value="">All States</option>
-            {["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
-              "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa",
-              "Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan",
-              "Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
-              "New Hampshire","New Jersey","New Mexico","New York","North Carolina",
-              "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island",
-              "South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
-              "Virginia","Washington","West Virginia","Wisconsin","Wyoming",
-            ].map((s) => <option key={s}>{s}</option>)}
+            {STATE_OPTIONS.map(([name, abbr]) => (
+              <option key={abbr} value={abbr}>{name}</option>
+            ))}
           </select>
         </div>
         <div className="section-actions">

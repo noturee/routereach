@@ -1,6 +1,6 @@
 /**
  * LocationProfile — Full detail view for an outreach location.
- * Tabs: Overview | Visit Logs (Phase 9) | Notes
+ * Tabs: Overview | Visit Logs | Notes
  */
 
 import React, { useState, useEffect, useCallback } from "react";
@@ -141,7 +141,21 @@ export default function LocationProfile() {
       <div className="profile-actions">
         <button className="btn btn-primary" onClick={() => setShowEdit(true)}>✏️ Edit Location</button>
         <button className="btn btn-success" onClick={() => { setEditingLog(null); setShowLogModal(true); }}>📋 Log Visit</button>
-        <button className="btn btn-secondary" disabled title="Coming in Phase 11">✉️ Send Email</button>
+        <button
+          className="btn btn-secondary"
+          onClick={() => {
+            if (!location.contact_email) {
+              alert("This location does not have a contact email yet.");
+              return;
+            }
+            const subject = encodeURIComponent(`Outreach follow-up: ${location.location_name}`);
+            const body = encodeURIComponent(`Hello ${location.contact_person || "there"},\n\nFollowing up regarding outreach at ${location.location_name}.\n\nThank you.`);
+            window.location.href = `mailto:${location.contact_email}?subject=${subject}&body=${body}`;
+          }}
+          title={location.contact_email ? "Send email" : "No contact email on file"}
+        >
+          ✉️ Send Email
+        </button>
         {isAdmin && (
           <button className="btn btn-danger" onClick={handleDelete} disabled={deleting}>
             {deleting ? "Deleting…" : "🗑 Delete"}

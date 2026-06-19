@@ -203,22 +203,24 @@ def update_user(user_id):
     if data.get("phone") is not None:
         user.phone = data["phone"].strip() or None
 
+    # Self-service profile scope fields
+    if data.get("organization_name") is not None:
+        user.organization_name = _normalize_optional_text(data.get("organization_name"))
+    if data.get("assigned_region") is not None:
+        user.assigned_region = _normalize_optional_text(data.get("assigned_region"))
+    if data.get("assigned_states") is not None:
+        user.assigned_states = _normalize_optional_text(data.get("assigned_states"))
+    if data.get("assigned_counties") is not None:
+        user.assigned_counties = _normalize_optional_text(data.get("assigned_counties"))
+
     # Admin-only fields
     if is_admin:
         if data.get("role") and data["role"] in USER_ROLES:
             user.role = data["role"]
-        if data.get("organization_name") is not None:
-            user.organization_name = data["organization_name"].strip() or None
-        if data.get("assigned_region") is not None:
-            user.assigned_region = data["assigned_region"]
-        if data.get("assigned_states") is not None:
-            user.assigned_states = data["assigned_states"]
-        if data.get("assigned_counties") is not None:
-            user.assigned_counties = data["assigned_counties"]
         if data.get("assigned_cities") is not None:
-            user.assigned_cities = data["assigned_cities"]
+            user.assigned_cities = _normalize_optional_text(data.get("assigned_cities"))
         if data.get("assigned_zip_codes") is not None:
-            user.assigned_zip_codes = data["assigned_zip_codes"]
+            user.assigned_zip_codes = _normalize_optional_text(data.get("assigned_zip_codes"))
 
     # Password change
     if data.get("password"):

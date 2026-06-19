@@ -12,13 +12,18 @@ from extensions import db
 class MonthlyReport(db.Model):
     __tablename__ = "monthly_reports"
 
+    REPORT_TYPE_OUTREACH_ADMISSIONS = "OUTREACH_ADMISSIONS_MONTHLY_REPORT"
+    REPORT_TYPE_LEGACY = "LEGACY_MONTHLY_REPORT"
+
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer, db.ForeignKey("users.id"), nullable=False, index=True
     )
     month = db.Column(db.Integer, nullable=False)
     year = db.Column(db.Integer, nullable=False)
+    report_type = db.Column(db.String(100), nullable=False, default=REPORT_TYPE_OUTREACH_ADMISSIONS)
     territory = db.Column(db.String(255), nullable=True)
+    report_data = db.Column(db.JSON, nullable=True)
 
     # Narrative sections — editable by the user before export
     summary = db.Column(db.Text, nullable=True)
@@ -43,7 +48,9 @@ class MonthlyReport(db.Model):
             "user_id": self.user_id,
             "month": self.month,
             "year": self.year,
+            "report_type": self.report_type or self.REPORT_TYPE_OUTREACH_ADMISSIONS,
             "territory": self.territory,
+            "report_data": self.report_data or {},
             "summary": self.summary,
             "applicant_activity": self.applicant_activity,
             "outreach_activity": self.outreach_activity,
@@ -52,9 +59,21 @@ class MonthlyReport(db.Model):
             "barriers": self.barriers,
             "performance_analysis": self.performance_analysis,
             "next_month_strategy": self.next_month_strategy,
+            "display_name": self.display_name,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
 
+    @property
+    def display_name(self) -> str:
+        month_names = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December",
+        ]
+        month_name = month_names[self.month - 1] if 1 <= (self.month or 0) <= 12 else f"Month {self.month}"
+        if self.report_type == self.REPORT_TYPE_OUTREACH_ADMISSIONS:
+            return f"Outreach & Admissions Monthly Report - {month_name} {self.year}"
+        return f"Monthly Report - {month_name} {self.year}"
+
     def __repr__(self):
-        return f"<MonthlyReport user={self.user_id} {self.month}/{self.year}>"
+        return f"<MonthlyReport type={self.report_type} user={self.user_id} {self.month}/{self.year}>"

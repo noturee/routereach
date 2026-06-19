@@ -3,6 +3,7 @@
  *
  * Props:
  *   onExportPdf: function
+ *   onExportWord: function
  *   onExportExcel: function
  *   onExportCsv: function
  *   loading: boolean (optional)
@@ -12,6 +13,7 @@ import React from "react";
 
 export default function ReportExportButtons({
   onExportPdf,
+  onExportWord,
   onExportExcel,
   onExportCsv,
   loading = false,
@@ -25,6 +27,14 @@ export default function ReportExportButtons({
         title="Export as PDF"
       >
         📄 PDF
+      </button>
+      <button
+        className="btn btn-export btn-export-word"
+        onClick={onExportWord}
+        disabled={loading}
+        title="Export as Word"
+      >
+        📝 Word
       </button>
       <button
         className="btn btn-export btn-export-excel"

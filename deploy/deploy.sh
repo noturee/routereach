@@ -22,15 +22,31 @@ S3_BUCKET="${APP_NAME}pro-frontend"          # routereachpro-frontend
 ECS_CLUSTER="${APP_NAME}-cluster"
 ECS_SERVICE="${APP_NAME}-backend-service"
 TASK_FAMILY="${APP_NAME}-backend"
+TARGET_GROUP_NAME="${APP_NAME}-backend"
+CONTAINER_NAME="backend"
+CONTAINER_PORT="5000"
+DESIRED_COUNT="${DESIRED_COUNT:-1}"
+ECS_ASSIGN_PUBLIC_IP="${ECS_ASSIGN_PUBLIC_IP:-ENABLED}"
 
 # Fill this in after creating your CloudFront distribution
 CLOUDFRONT_DISTRIBUTION_ID="${CLOUDFRONT_DISTRIBUTION_ID:-}"
 
 # API URL injected into the Vite build
-VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.routereachpro.com}"
+VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api.routereachpro.com/api}"
+VITE_GOOGLE_MAPS_API_KEY="${VITE_GOOGLE_MAPS_API_KEY:-}"
 
-# Image tag — default to short git SHA
-IMAGE_TAG="${IMAGE_TAG:-$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')}"
+# Image tag — default to short git SHA. If the working tree is dirty, append
+# a timestamp so ECS does not reuse a stale mutable tag for local-only changes.
+if [[ -n "${IMAGE_TAG:-}" ]]; then
+  IMAGE_TAG="$IMAGE_TAG"
+else
+  BASE_IMAGE_TAG="$(git rev-parse --short HEAD 2>/dev/null || echo 'latest')"
+  if git diff --quiet HEAD -- 2>/dev/null && git diff --cached --quiet -- 2>/dev/null; then
+    IMAGE_TAG="$BASE_IMAGE_TAG"
+  else
+    IMAGE_TAG="${BASE_IMAGE_TAG}-dirty-$(date '+%Y%m%d%H%M%S')"
+  fi
+fi
 
 # Script directory (repo root is one level up)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -85,7 +101,9 @@ log "Building frontend (VITE_API_BASE_URL=${VITE_API_BASE_URL})..."
 (
   cd "$ROOT_DIR/frontend"
   npm ci --prefer-offline
-  VITE_API_BASE_URL="$VITE_API_BASE_URL" npm run build
+  VITE_API_BASE_URL="$VITE_API_BASE_URL" \
+  VITE_GOOGLE_MAPS_API_KEY="$VITE_GOOGLE_MAPS_API_KEY" \
+  npm run build
 )
 
 # Ensure S3 bucket exists
@@ -126,12 +144,28 @@ if [[ "$RUN_MIGRATE" == "true" ]]; then
   [[ -z "$SUBNET_IDS" ]] && die "Set SUBNET_IDS env var before running --migrate (comma-separated subnet IDs)"
   [[ -z "$SG_IDS"    ]] && die "Set SG_IDS env var before running --migrate (security group ID)"
 
+  # Always run migrations with the image built in this deployment.
+  # Using the task family alone can pick an older revision and skip new migrations.
+  MIGRATION_TASK_DEF_FILE="$(mktemp)"
+  jq \
+    --arg image "${ECR_REPO}:${IMAGE_TAG}" \
+    '.containerDefinitions[0].image = $image' \
+    "$SCRIPT_DIR/ecs-task-definition.json" > "$MIGRATION_TASK_DEF_FILE"
+
+  TASK_DEF_TO_RUN=$(aws ecs register-task-definition \
+    --cli-input-json "file://${MIGRATION_TASK_DEF_FILE}" \
+    --region "$REGION" \
+    | jq -r '.taskDefinition.taskDefinitionArn')
+
+  rm -f "$MIGRATION_TASK_DEF_FILE"
+  log "Registered migration task definition: ${TASK_DEF_TO_RUN}"
+
   TASK_ARN=$(aws ecs run-task \
     --cluster "$ECS_CLUSTER" \
-    --task-definition "$TASK_FAMILY" \
+    --task-definition "$TASK_DEF_TO_RUN" \
     --launch-type FARGATE \
-    --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_IDS}],securityGroups=[${SG_IDS}],assignPublicIp=DISABLED}" \
-    --overrides '{"containerOverrides":[{"name":"backend","command":["flask","db","upgrade"]}]}' \
+    --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_IDS}],securityGroups=[${SG_IDS}],assignPublicIp=${ECS_ASSIGN_PUBLIC_IP}}" \
+    --overrides "{\"containerOverrides\":[{\"name\":\"${CONTAINER_NAME}\",\"command\":[\"sh\",\"scripts/ecs_migrate.sh\"]}]}" \
     --region "$REGION" \
     | jq -r '.tasks[0].taskArn')
 
@@ -149,35 +183,78 @@ if [[ "$RUN_MIGRATE" == "true" ]]; then
     --region "$REGION" \
     | jq -r '.tasks[0].containers[0].exitCode')
 
-  [[ "$EXIT_CODE" == "0" ]] || die "Migration task exited with code ${EXIT_CODE}"
+  if [[ "$EXIT_CODE" != "0" ]]; then
+    STOP_REASON=$(aws ecs describe-tasks \
+      --cluster "$ECS_CLUSTER" \
+      --tasks "$TASK_ARN" \
+      --region "$REGION" \
+      | jq -r '.tasks[0].stoppedReason // "Unknown ECS stop reason"')
+    die "Migration task exited with code ${EXIT_CODE}. ECS reason: ${STOP_REASON}"
+  fi
   log "Migrations completed successfully."
 fi
 
 # ── 5. Register new ECS task definition revision ──────────────────────────
 log "Registering ECS task definition with image ${IMAGE_TAG}..."
 
-TASK_DEF=$(jq \
+TASK_DEF_FILE="$(mktemp)"
+jq \
   --arg image "${ECR_REPO}:${IMAGE_TAG}" \
   '.containerDefinitions[0].image = $image' \
-  "$SCRIPT_DIR/ecs-task-definition.json")
+  "$SCRIPT_DIR/ecs-task-definition.json" > "$TASK_DEF_FILE"
 
-NEW_TASK_DEF_ARN=$(echo "$TASK_DEF" \
-  | aws ecs register-task-definition \
-      --cli-input-json file:///dev/stdin \
+NEW_TASK_DEF_ARN=$(aws ecs register-task-definition \
+      --cli-input-json "file://${TASK_DEF_FILE}" \
       --region "$REGION" \
   | jq -r '.taskDefinition.taskDefinitionArn')
 
+rm -f "$TASK_DEF_FILE"
+
 log "Registered: ${NEW_TASK_DEF_ARN}"
 
-# ── 6. Update ECS service ─────────────────────────────────────────────────
-log "Updating ECS service ${ECS_SERVICE}..."
-aws ecs update-service \
-  --cluster "$ECS_CLUSTER" \
-  --service "$ECS_SERVICE" \
-  --task-definition "$NEW_TASK_DEF_ARN" \
-  --force-new-deployment \
+# ── 6. Create or update ECS service ───────────────────────────────────────
+SUBNET_IDS="${SUBNET_IDS:-}"
+SG_IDS="${SG_IDS:-}"
+
+[[ -z "$SUBNET_IDS" ]] && die "Set SUBNET_IDS env var before deploying (comma-separated subnet IDs)"
+[[ -z "$SG_IDS"    ]] && die "Set SG_IDS env var before deploying (comma-separated ECS app security group IDs)"
+
+TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+  --names "$TARGET_GROUP_NAME" \
   --region "$REGION" \
-  | jq -r '.service.deployments[] | "\(.status): \(.desiredCount) desired, \(.runningCount) running"'
+  | jq -r '.TargetGroups[0].TargetGroupArn')
+
+[[ -n "$TARGET_GROUP_ARN" && "$TARGET_GROUP_ARN" != "null" ]] || die "Target group ${TARGET_GROUP_NAME} not found"
+
+SERVICE_EXISTS=$(aws ecs describe-services \
+  --cluster "$ECS_CLUSTER" \
+  --services "$ECS_SERVICE" \
+  --region "$REGION" \
+  | jq -r '.services | length')
+
+if [[ "$SERVICE_EXISTS" == "0" ]]; then
+  log "Creating ECS service ${ECS_SERVICE}..."
+  aws ecs create-service \
+    --cluster "$ECS_CLUSTER" \
+    --service-name "$ECS_SERVICE" \
+    --task-definition "$NEW_TASK_DEF_ARN" \
+    --desired-count "$DESIRED_COUNT" \
+    --launch-type FARGATE \
+    --health-check-grace-period-seconds 90 \
+    --load-balancers "targetGroupArn=${TARGET_GROUP_ARN},containerName=${CONTAINER_NAME},containerPort=${CONTAINER_PORT}" \
+    --network-configuration "awsvpcConfiguration={subnets=[${SUBNET_IDS}],securityGroups=[${SG_IDS}],assignPublicIp=${ECS_ASSIGN_PUBLIC_IP}}" \
+    --region "$REGION" \
+    | jq -r '.service.serviceName'
+else
+  log "Updating ECS service ${ECS_SERVICE}..."
+  aws ecs update-service \
+    --cluster "$ECS_CLUSTER" \
+    --service "$ECS_SERVICE" \
+    --task-definition "$NEW_TASK_DEF_ARN" \
+    --force-new-deployment \
+    --region "$REGION" \
+    | jq -r '.service.deployments[] | "\(.status): \(.desiredCount) desired, \(.runningCount) running"'
+fi
 
 log "Deployment initiated. Monitor progress:"
 log "  https://console.aws.amazon.com/ecs/v2/clusters/${ECS_CLUSTER}/services/${ECS_SERVICE}"

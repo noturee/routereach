@@ -68,8 +68,21 @@ CREATE TABLE IF NOT EXISTS applicants (
     timezone VARCHAR(50),
     latitude FLOAT,
     longitude FLOAT,
+    center_of_interest VARCHAR(255),
     trade_interest VARCHAR(255),
+    campus VARCHAR(255),
+    academic_status VARCHAR(100),
     education_status VARCHAR(100),
+    interview_date DATE,
+    interview_location VARCHAR(255),
+    form_104_applicant_history TEXT,
+    form_104_short_term_goals TEXT,
+    form_104_long_term_goals TEXT,
+    form_104_action_plan TEXT,
+    form_104_recommended_length VARCHAR(255),
+    form_104_trade_interest_summary TEXT,
+    form_104_willingness_to_relocate TEXT,
+    form_104_labor_market_discussion TEXT,
     application_status VARCHAR(100) NOT NULL DEFAULT 'New Application',
     application_status_reason TEXT,
     assigned_oa_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -91,6 +104,21 @@ CREATE INDEX IF NOT EXISTS idx_applicants_assigned_oa ON applicants(assigned_oa_
 CREATE INDEX IF NOT EXISTS idx_applicants_status ON applicants(application_status);
 CREATE INDEX IF NOT EXISTS idx_applicants_state ON applicants(state);
 CREATE INDEX IF NOT EXISTS idx_applicants_zip ON applicants(zip_code);
+
+-- ── Applicant Reports ───────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS applicant_reports (
+    id SERIAL PRIMARY KEY,
+    applicant_id INTEGER NOT NULL REFERENCES applicants(id) ON DELETE CASCADE,
+    report_type VARCHAR(100) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    content_json JSONB NOT NULL,
+    created_by VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_applicant_reports_applicant ON applicant_reports(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_applicant_reports_type ON applicant_reports(report_type);
 
 -- ── Applicant Documents ───────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS applicant_documents (
@@ -315,7 +343,9 @@ CREATE TABLE IF NOT EXISTS monthly_reports (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     month INTEGER NOT NULL,
     year INTEGER NOT NULL,
+    report_type VARCHAR(100) NOT NULL DEFAULT 'OUTREACH_ADMISSIONS_MONTHLY_REPORT',
     territory VARCHAR(255),
+    report_data JSONB,
     summary TEXT,
     applicant_activity TEXT,
     outreach_activity TEXT,

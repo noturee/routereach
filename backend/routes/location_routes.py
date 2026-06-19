@@ -7,6 +7,7 @@ CRUD for every physical location visited during field outreach.
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import date
+from sqlalchemy import func
 
 from extensions import db
 from models.outreach_location import OutreachLocation
@@ -20,9 +21,59 @@ location_bp = Blueprint("locations", __name__)
 
 LOCATION_STATUSES = ["active", "inactive", "do_not_visit", "pending_approval"]
 
+STATE_ABBR_TO_NAME = {
+    "al": "alabama", "ak": "alaska", "az": "arizona", "ar": "arkansas",
+    "ca": "california", "co": "colorado", "ct": "connecticut", "de": "delaware",
+    "fl": "florida", "ga": "georgia", "hi": "hawaii", "id": "idaho",
+    "il": "illinois", "in": "indiana", "ia": "iowa", "ks": "kansas",
+    "ky": "kentucky", "la": "louisiana", "me": "maine", "md": "maryland",
+    "ma": "massachusetts", "mi": "michigan", "mn": "minnesota", "ms": "mississippi",
+    "mo": "missouri", "mt": "montana", "ne": "nebraska", "nv": "nevada",
+    "nh": "new hampshire", "nj": "new jersey", "nm": "new mexico", "ny": "new york",
+    "nc": "north carolina", "nd": "north dakota", "oh": "ohio", "ok": "oklahoma",
+    "or": "oregon", "pa": "pennsylvania", "ri": "rhode island", "sc": "south carolina",
+    "sd": "south dakota", "tn": "tennessee", "tx": "texas", "ut": "utah",
+    "vt": "vermont", "va": "virginia", "wa": "washington", "wv": "west virginia",
+    "wi": "wisconsin", "wy": "wyoming",
+}
+STATE_NAME_TO_ABBR = {v: k for k, v in STATE_ABBR_TO_NAME.items()}
+
 
 def get_current_user():
     return User.query.get(int(get_jwt_identity()))
+
+
+def _parse_csv_scope(raw: str | None) -> list[str]:
+    if not raw:
+        return []
+    return [part.strip().lower() for part in raw.split(",") if part.strip()]
+
+
+def _apply_user_location_scope(query, user: User):
+    """Filter locations to the current user's geographic scope when defined."""
+    states = _parse_csv_scope(user.assigned_states)
+    counties = _parse_csv_scope(user.assigned_counties)
+
+    if states:
+        normalized_states = set()
+        for s in states:
+            token = s.strip().lower()
+            if not token:
+                continue
+            normalized_states.add(token)
+            if len(token) == 2 and token in STATE_ABBR_TO_NAME:
+                normalized_states.add(STATE_ABBR_TO_NAME[token])
+            if token in STATE_NAME_TO_ABBR:
+                normalized_states.add(STATE_NAME_TO_ABBR[token])
+        query = query.filter(func.lower(OutreachLocation.state).in_(normalized_states))
+    if counties:
+        query = query.filter(func.lower(OutreachLocation.county).in_(counties))
+
+    # If OA user has no explicit geographic scope, default to their assigned locations.
+    if not is_admin(user) and not states and not counties:
+        query = query.filter(OutreachLocation.assigned_oa_id == user.id)
+
+    return query
 
 
 # ── GET /api/locations ────────────────────────────────────────────────────────
@@ -88,22 +139,43 @@ def get_locations():
 @location_bp.route("/map", methods=["GET"])
 @jwt_required()
 def get_map_locations():
-    """Return minimal location data for map pins (Phase 10)."""
-    locs = OutreachLocation.query.filter_by(status="active").all()
+    """Return location data for map pins and map filter dropdowns."""
+    current_user = get_current_user()
+    query = OutreachLocation.query
+    if current_user:
+        query = _apply_user_location_scope(query, current_user)
+
+    locs = query.order_by(OutreachLocation.location_name).all()
+
+    locations = []
+    for l in locs:
+        locations.append({
+            "id": l.id,
+            "location_name": l.location_name,
+            "location_type": l.location_type,
+            "latitude": l.latitude,
+            "longitude": l.longitude,
+            "city": l.city,
+            "state": l.state,
+            "county": l.county,
+            "status": l.status,
+            "assigned_oa_id": l.assigned_oa_id,
+            "assigned_oa_name": (
+                f"{l.assigned_oa.first_name} {l.assigned_oa.last_name}" if l.assigned_oa else None
+            ),
+        })
+
+    filter_meta = {
+        "states": sorted({(l["state"] or "").strip() for l in locations if l.get("state")}),
+        "counties": sorted({(l["county"] or "").strip() for l in locations if l.get("county")}),
+        "location_types": sorted({(l["location_type"] or "").strip() for l in locations if l.get("location_type")}),
+        "oa_names": sorted({(l["assigned_oa_name"] or "").strip() for l in locations if l.get("assigned_oa_name")}),
+        "statuses": sorted({(l["status"] or "").strip() for l in locations if l.get("status")}),
+    }
+
     return jsonify({
-        "locations": [
-            {
-                "id": l.id,
-                "location_name": l.location_name,
-                "location_type": l.location_type,
-                "latitude":  l.latitude,
-                "longitude": l.longitude,
-                "city":  l.city,
-                "state": l.state,
-            }
-            for l in locs
-            if l.latitude and l.longitude
-        ]
+        "locations": locations,
+        "filters": filter_meta,
     }), 200
 
 
@@ -131,11 +203,11 @@ def create_location():
     current_user = get_current_user()
     data = request.get_json() or {}
 
-    name = data.get("location_name", "").strip()
+    name = (data.get("location_name") or "").strip()
     if not name:
         return jsonify({"error": "location_name is required."}), 400
 
-    loc_type = data.get("location_type", "").strip()
+    loc_type = (data.get("location_type") or "").strip()
     if loc_type and loc_type not in LOCATION_TYPES:
         return jsonify({"error": f"Invalid location_type."}), 400
 
@@ -147,6 +219,10 @@ def create_location():
         if not val: return None
         try: return date.fromisoformat(val)
         except (ValueError, TypeError): return None
+
+    assigned_oa_id = data.get("assigned_oa_id") or None
+    if not is_admin(current_user) and not assigned_oa_id:
+        assigned_oa_id = current_user.id
 
     loc = OutreachLocation(
         location_name       = name,
@@ -162,7 +238,7 @@ def create_location():
         contact_phone       = d("contact_phone"),
         contact_email       = d("contact_email"),
         marketing_allowed   = bool(data.get("marketing_allowed", True)),
-        assigned_oa_id      = data.get("assigned_oa_id") or None,
+        assigned_oa_id      = assigned_oa_id,
         created_by_user_id  = current_user.id,
         last_visit_date     = parse_date(d("last_visit_date")),
         next_follow_up_date = parse_date(d("next_follow_up_date")),

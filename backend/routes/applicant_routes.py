@@ -8,6 +8,7 @@ Role-based access: OA users see only their assigned applicants; admins see all.
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime, timezone, date
+from sqlalchemy import func
 from extensions import db
 from models.applicant import Applicant
 from models.applicant_document import ApplicantDocument
@@ -27,6 +28,10 @@ applicant_bp = Blueprint("applicants", __name__)
 def get_current_user():
     user_id = int(get_jwt_identity())
     return User.query.get(user_id)
+
+
+def _clean_text(data, key):
+    return (data.get(key) or "").strip()
 
 
 def _record_status_change(applicant, old_status, new_status, reason, user_id, notes=None):
@@ -84,7 +89,8 @@ def get_applicants():
     Admins see all (optionally filtered by assigned_oa).
     GET /api/applicants
     Query params: status, state, county, assigned_oa_id, search,
-                  is_complete, is_withdrawn, page, per_page
+                  is_complete, is_withdrawn, import_filter, sequence_by_user,
+                  page, per_page
     """
     current_user = get_current_user()
     if not current_user:
@@ -119,6 +125,26 @@ def get_applicants():
     if is_withdrawn is not None:
         query = query.filter_by(is_withdrawn=is_withdrawn.lower() == "true")
 
+    import_filter = request.args.get("import_filter", "").strip().lower()
+    if import_filter == "needs_zip_code":
+        query = query.filter_by(needs_zip_code=True)
+    elif import_filter == "open":
+        query = query.filter(func.lower(Applicant.case_status) == "open")
+    elif import_filter == "withdrawn":
+        query = query.filter(
+            db.or_(Applicant.is_withdrawn.is_(True), func.lower(Applicant.case_status) == "withdrawn")
+        )
+    elif import_filter == "application_started":
+        query = query.filter(func.lower(Applicant.workflow_milestone) == "application started")
+    elif import_filter == "application_submitted":
+        query = query.filter(func.lower(Applicant.workflow_milestone) == "application submitted")
+    elif import_filter == "application_verified":
+        query = query.filter(func.lower(Applicant.workflow_milestone) == "application verified")
+    elif import_filter == "expedited":
+        query = query.filter(func.lower(Applicant.urgency) == "expedited")
+    elif import_filter == "standard":
+        query = query.filter(func.lower(Applicant.urgency) == "standard")
+
     search = request.args.get("search", "").strip()
     if search:
         query = query.filter(
@@ -127,6 +153,8 @@ def get_applicants():
                 Applicant.last_name.ilike(f"%{search}%"),
                 Applicant.phone.ilike(f"%{search}%"),
                 Applicant.email.ilike(f"%{search}%"),
+                Applicant.tracking_number.ilike(f"%{search}%"),
+                Applicant.full_name_original.ilike(f"%{search}%"),
             )
         )
 
@@ -135,9 +163,20 @@ def get_applicants():
     per_page = min(100, int(request.args.get("per_page", 50)))
 
     total = query.count()
+    sequence_by_user = request.args.get("sequence_by_user", "").strip().lower() == "true"
+
+    if is_admin(current_user) and sequence_by_user:
+        query = query.outerjoin(User, Applicant.assigned_oa_id == User.id).order_by(
+            User.last_name.asc().nullslast(),
+            User.first_name.asc().nullslast(),
+            Applicant.last_name.asc(),
+            Applicant.first_name.asc(),
+        )
+    else:
+        query = query.order_by(Applicant.next_follow_up_date.asc().nullslast(), Applicant.last_name)
+
     applicants = (
-        query.order_by(Applicant.next_follow_up_date.asc().nullslast(), Applicant.last_name)
-        .offset((page - 1) * per_page)
+        query.offset((page - 1) * per_page)
         .limit(per_page)
         .all()
     )
@@ -175,8 +214,8 @@ def create_applicant():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    first_name = data.get("first_name", "").strip()
-    last_name = data.get("last_name", "").strip()
+    first_name = _clean_text(data, "first_name")
+    last_name = _clean_text(data, "last_name")
     if not first_name or not last_name:
         return jsonify({"error": "First name and last name are required."}), 400
 
@@ -198,24 +237,37 @@ def create_applicant():
     applicant = Applicant(
         first_name=first_name,
         last_name=last_name,
-        phone=data.get("phone", "").strip() or None,
-        email=data.get("email", "").strip().lower() or None,
+        phone=_clean_text(data, "phone") or None,
+        email=_clean_text(data, "email").lower() or None,
         age=data.get("age") or None,
         date_of_birth=parse_date(data.get("date_of_birth")),
-        address=data.get("address", "").strip() or None,
-        city=data.get("city", "").strip() or None,
-        state=data.get("state", "").strip() or None,
-        county=data.get("county", "").strip() or None,
-        zip_code=data.get("zip_code", "").strip() or None,
-        timezone=data.get("timezone", "").strip() or None,
-        trade_interest=data.get("trade_interest", "").strip() or None,
-        education_status=data.get("education_status", "").strip() or None,
+        address=_clean_text(data, "address") or None,
+        city=_clean_text(data, "city") or None,
+        state=_clean_text(data, "state") or None,
+        county=_clean_text(data, "county") or None,
+        zip_code=_clean_text(data, "zip_code") or None,
+        timezone=_clean_text(data, "timezone") or None,
+        center_of_interest=_clean_text(data, "center_of_interest") or None,
+        trade_interest=_clean_text(data, "trade_interest") or None,
+        campus=_clean_text(data, "campus") or None,
+        academic_status=_clean_text(data, "academic_status") or None,
+        education_status=_clean_text(data, "education_status") or None,
+        interview_date=parse_date(data.get("interview_date")),
+        interview_location=_clean_text(data, "interview_location") or None,
+        form_104_applicant_history=_clean_text(data, "form_104_applicant_history") or None,
+        form_104_short_term_goals=_clean_text(data, "form_104_short_term_goals") or None,
+        form_104_long_term_goals=_clean_text(data, "form_104_long_term_goals") or None,
+        form_104_action_plan=_clean_text(data, "form_104_action_plan") or None,
+        form_104_recommended_length=_clean_text(data, "form_104_recommended_length") or None,
+        form_104_trade_interest_summary=_clean_text(data, "form_104_trade_interest_summary") or None,
+        form_104_willingness_to_relocate=_clean_text(data, "form_104_willingness_to_relocate") or None,
+        form_104_labor_market_discussion=_clean_text(data, "form_104_labor_market_discussion") or None,
         application_status=data.get("application_status", "New Application"),
         assigned_oa_id=assigned_oa_id,
-        source=data.get("source", "").strip() or None,
-        referral_source=data.get("referral_source", "").strip() or None,
+        source=_clean_text(data, "source") or None,
+        referral_source=_clean_text(data, "referral_source") or None,
         date_applied=parse_date(data.get("date_applied")) or date.today(),
-        notes=data.get("notes", "").strip() or None,
+        notes=_clean_text(data, "notes") or None,
     )
     db.session.add(applicant)
     db.session.flush()
@@ -258,6 +310,7 @@ def update_applicant(applicant_id):
         return jsonify({"error": "Access denied."}), 403
 
     data = request.get_json() or {}
+    old_status = applicant.application_status
 
     def parse_date(val):
         if val is None:
@@ -270,9 +323,17 @@ def update_applicant(applicant_id):
     # Updatable fields
     str_fields = [
         "first_name", "last_name", "phone", "email", "address", "city",
-        "state", "county", "zip_code", "timezone", "trade_interest",
-        "education_status", "source", "referral_source", "notes",
+        "state", "county", "zip_code", "timezone", "center_of_interest", "trade_interest",
+        "campus", "academic_status", "education_status", "interview_location",
+        "form_104_applicant_history", "form_104_short_term_goals", "form_104_long_term_goals",
+        "form_104_action_plan", "form_104_recommended_length", "form_104_trade_interest_summary",
+        "form_104_willingness_to_relocate", "form_104_labor_market_discussion",
+        "source", "referral_source", "notes",
         "application_status_reason",
+        "middle_name", "full_name_original", "tracking_number", "case_status",
+        "workflow_milestone", "urgency", "center_status",
+        "submitted_application_questionnaire", "submitted_health_questionnaire",
+        "assigned_oa_name", "import_source", "import_batch_id",
     ]
     for field in str_fields:
         if field in data:
@@ -280,10 +341,18 @@ def update_applicant(applicant_id):
 
     if "age" in data:
         applicant.age = data["age"] or None
+    if "days_in_queue" in data:
+        applicant.days_in_queue = data["days_in_queue"] or None
+    if "needs_zip_code" in data:
+        applicant.needs_zip_code = bool(data["needs_zip_code"])
     if "date_of_birth" in data:
         applicant.date_of_birth = parse_date(data["date_of_birth"])
     if "date_applied" in data:
         applicant.date_applied = parse_date(data["date_applied"])
+    if "interview_date" in data:
+        applicant.interview_date = parse_date(data["interview_date"])
+    if "case_creation_date" in data:
+        applicant.case_creation_date = parse_date(data["case_creation_date"])
     if "last_contact_date" in data:
         applicant.last_contact_date = parse_date(data["last_contact_date"])
     if "next_follow_up_date" in data:
@@ -292,6 +361,40 @@ def update_applicant(applicant_id):
     # Admin-only fields
     if is_admin(current_user) and "assigned_oa_id" in data:
         applicant.assigned_oa_id = data["assigned_oa_id"]
+
+    # Allow status changes through the edit form save flow.
+    if "application_status" in data:
+        requested_status = _clean_text(data, "application_status")
+        if not requested_status:
+            return jsonify({"error": "application_status cannot be empty."}), 400
+        if requested_status not in APPLICATION_STATUSES:
+            return jsonify({"error": "Invalid status."}), 400
+
+        applicant.application_status = requested_status
+        if old_status != requested_status:
+            _record_status_change(
+                applicant,
+                old_status=old_status,
+                new_status=requested_status,
+                reason=_clean_text(data, "application_status_reason") or "Status updated from applicant edit.",
+                user_id=current_user.id,
+            )
+    elif "applicant_status" in data:
+        requested_status = _clean_text(data, "applicant_status")
+        if not requested_status:
+            return jsonify({"error": "applicant_status cannot be empty."}), 400
+        if requested_status not in APPLICATION_STATUSES:
+            return jsonify({"error": "Invalid status."}), 400
+
+        applicant.application_status = requested_status
+        if old_status != requested_status:
+            _record_status_change(
+                applicant,
+                old_status=old_status,
+                new_status=requested_status,
+                reason=_clean_text(data, "application_status_reason") or "Status updated from applicant edit.",
+                user_id=current_user.id,
+            )
 
     db.session.commit()
     return jsonify({"message": "Applicant updated.", "applicant": applicant.to_dict()}), 200
@@ -340,7 +443,7 @@ def update_status(applicant_id):
         return jsonify({"error": "Access denied."}), 403
 
     data = request.get_json() or {}
-    new_status = data.get("new_status", "").strip()
+    new_status = _clean_text(data, "new_status")
 
     if not new_status:
         return jsonify({"error": "new_status is required."}), 400
@@ -352,7 +455,7 @@ def update_status(applicant_id):
         return jsonify({"error": "Applicant already has this status."}), 400
 
     applicant.application_status = new_status
-    applicant.application_status_reason = data.get("reason", "").strip() or None
+    applicant.application_status_reason = _clean_text(data, "reason") or None
 
     # Auto-update last_contact_date for active statuses
     contact_statuses = {"Contact Made", "Interview Scheduled", "Interview Completed"}
@@ -361,9 +464,9 @@ def update_status(applicant_id):
 
     _record_status_change(
         applicant, old_status, new_status,
-        reason=data.get("reason", "").strip() or None,
+        reason=_clean_text(data, "reason") or None,
         user_id=current_user.id,
-        notes=data.get("notes", "").strip() or None,
+        notes=_clean_text(data, "notes") or None,
     )
     db.session.commit()
 
@@ -431,7 +534,7 @@ def withdraw(applicant_id):
         return jsonify({"error": "Applicant is already withdrawn."}), 400
 
     data = request.get_json() or {}
-    withdrawal_reason = data.get("withdrawal_reason", "").strip()
+    withdrawal_reason = _clean_text(data, "withdrawal_reason")
     if not withdrawal_reason:
         return jsonify({"error": "withdrawal_reason is required."}), 400
 
@@ -506,7 +609,7 @@ def add_document(applicant_id):
         return jsonify({"error": "Access denied."}), 403
 
     data = request.get_json() or {}
-    doc_name = data.get("document_name", "").strip()
+    doc_name = _clean_text(data, "document_name")
     if not doc_name:
         return jsonify({"error": "document_name is required."}), 400
 
@@ -515,7 +618,7 @@ def add_document(applicant_id):
         document_name=doc_name,
         is_required=data.get("is_required", True),
         is_received=data.get("is_received", False),
-        notes=data.get("notes", "").strip() or None,
+        notes=_clean_text(data, "notes") or None,
         updated_by_user_id=current_user.id,
     )
     db.session.add(doc)

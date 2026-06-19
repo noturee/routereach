@@ -12,27 +12,29 @@
 import React, { useEffect } from "react";
 
 export default function Modal({ isOpen, onClose, title, children, size = "md" }) {
+  const open = isOpen ?? true;
+
   // Close on Escape key
   useEffect(() => {
-    if (!isOpen) return;
+    if (!open) return;
     const handleKey = (e) => {
       if (e.key === "Escape") onClose();
     };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
-  }, [isOpen, onClose]);
+  }, [open, onClose]);
 
   // Prevent body scroll when open
   useEffect(() => {
-    if (isOpen) {
+    if (open) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
     }
     return () => { document.body.style.overflow = ""; };
-  }, [isOpen]);
+  }, [open]);
 
-  if (!isOpen) return null;
+  if (!open) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>

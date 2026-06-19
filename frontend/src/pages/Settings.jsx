@@ -18,6 +18,9 @@ export default function Settings() {
     last_name: user?.last_name || "",
     phone: user?.phone || "",
     organization_name: user?.organization_name || "",
+    assigned_region: user?.assigned_region || "",
+    assigned_states: user?.assigned_states || "",
+    assigned_counties: user?.assigned_counties || "",
   });
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileMessage, setProfileMessage] = useState({ type: "", text: "" });
@@ -40,6 +43,9 @@ export default function Settings() {
         last_name: profile.last_name.trim(),
         phone: profile.phone.trim() || null,
         organization_name: profile.organization_name.trim() || null,
+        assigned_region: profile.assigned_region.trim() || null,
+        assigned_states: profile.assigned_states.trim() || null,
+        assigned_counties: profile.assigned_counties.trim() || null,
       });
       await refreshUser();
       setProfileMessage({ type: "success", text: "Profile updated successfully." });
@@ -158,6 +164,42 @@ export default function Settings() {
             </div>
           </div>
 
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Assigned Region</label>
+              <input
+                className="form-input"
+                value={profile.assigned_region}
+                onChange={setProfileField("assigned_region")}
+                placeholder="e.g. Southeast"
+                disabled={profileLoading}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Assigned States</label>
+              <input
+                className="form-input"
+                value={profile.assigned_states}
+                onChange={setProfileField("assigned_states")}
+                placeholder="Comma-separated, e.g. GA,FL,AL"
+                disabled={profileLoading}
+              />
+            </div>
+          </div>
+
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Assigned Counties</label>
+              <input
+                className="form-input"
+                value={profile.assigned_counties}
+                onChange={setProfileField("assigned_counties")}
+                placeholder="Comma-separated counties"
+                disabled={profileLoading}
+              />
+            </div>
+          </div>
+
           {profileMessage.text && (
             <div className={`alert alert-${profileMessage.type}`}>{profileMessage.text}</div>
           )}
@@ -249,6 +291,12 @@ export default function Settings() {
               <div style={{ display: "flex", justifyContent: "space-between" }}>
                 <span style={{ color: "var(--color-gray-500)" }}>Region</span>
                 <span style={{ fontWeight: 500 }}>{user.assigned_region}</span>
+              </div>
+            )}
+            {user?.assigned_counties && (
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: "var(--color-gray-500)" }}>Assigned Counties</span>
+                <span style={{ fontWeight: 500 }}>{user.assigned_counties}</span>
               </div>
             )}
           </div>

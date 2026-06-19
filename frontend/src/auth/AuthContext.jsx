@@ -49,10 +49,23 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     try {
       const response = await apiClient.post("/auth/login", { email, password });
-      const { access_token, refresh_token, user: userData } = response.data;
+      const { access_token, refresh_token } = response.data;
 
       localStorage.setItem("access_token", access_token);
       if (refresh_token) localStorage.setItem("refresh_token", refresh_token);
+
+      let userData = response.data?.user || null;
+      if (!userData) {
+        const meResponse = await apiClient.get("/auth/me", {
+          headers: { Authorization: `Bearer ${access_token}` },
+        });
+        userData = meResponse.data?.user || null;
+      }
+
+      if (!userData) {
+        throw new Error("Login succeeded but user profile could not be loaded.");
+      }
+
       localStorage.setItem("user", JSON.stringify(userData));
       setUser(userData);
 

@@ -43,9 +43,26 @@ export default function VisitLogs() {
 
   // Load supporting data
   useEffect(() => {
-    apiClient.get("/locations?status=active&per_page=200")
-      .then((r) => setLocations(r.data.locations || []))
-      .catch(() => {});
+    // Use scoped map payload so OA users only see locations in their assigned territory.
+    apiClient.get("/locations/map")
+      .then((r) => {
+        const locs = (r.data.locations || [])
+          .filter((l) => (l.status || "").toLowerCase() === "active")
+          .map((l) => ({
+            id: l.id,
+            location_name: l.location_name,
+            city: l.city,
+            state: l.state,
+            county: l.county,
+          }));
+        setLocations(locs);
+      })
+      .catch(() => {
+        // Fallback for legacy payloads
+        apiClient.get("/locations?status=active&per_page=200")
+          .then((r) => setLocations(r.data.locations || []))
+          .catch(() => setLocations([]));
+      });
     if (isAdmin) {
       apiClient.get("/users?per_page=200")
         .then((r) => setUsers(r.data.users || []))
@@ -133,8 +150,14 @@ export default function VisitLogs() {
             </select>
           )}
         </div>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ Log Visit</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)} disabled={locations.length === 0}>+ Log Visit</button>
       </div>
+
+      {locations.length === 0 && (
+        <div className="alert alert-error" style={{ marginBottom: 12 }}>
+          No active locations are available for your account. Add or assign at least one active location before logging visits.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="list-stats-row">

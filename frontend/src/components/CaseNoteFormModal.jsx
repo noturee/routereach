@@ -26,8 +26,9 @@ const NOTE_TYPES = [
   "Arrival Update",
 ];
 
-export default function CaseNoteFormModal({ applicantId, applicantName, onSave, onClose }) {
+export default function CaseNoteFormModal({ applicantId, applicantName, applicants = [], onSave, onClose }) {
   const [noteType, setNoteType] = useState("General Note");
+  const [selectedApplicantId, setSelectedApplicantId] = useState(applicantId || "");
   const [reason,   setReason]   = useState("");
   const [action,   setAction]   = useState("");
   const [plan,     setPlan]     = useState("");
@@ -43,16 +44,22 @@ export default function CaseNoteFormModal({ applicantId, applicantName, onSave, 
       return;
     }
 
+    if (!applicantId && !selectedApplicantId) {
+      setError("Please select an applicant.");
+      return;
+    }
+
     setSaving(true);
     try {
       await onSave({
+        applicant_id: applicantId || Number(selectedApplicantId),
         note_type: noteType,
         reason:    reason.trim()  || null,
         action:    action.trim()  || null,
         plan:      plan.trim()    || null,
       });
     } catch (err) {
-      setError(err.message || "Failed to save case note.");
+      setError(err.response?.data?.error || err.message || "Failed to save case note.");
       setSaving(false);
     }
   };
@@ -66,6 +73,24 @@ export default function CaseNoteFormModal({ applicantId, applicantName, onSave, 
       <form onSubmit={handleSubmit}>
         {error && (
           <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>
+        )}
+
+        {!applicantId && (
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Applicant *</label>
+            <select
+              className="form-select"
+              value={selectedApplicantId}
+              onChange={(e) => setSelectedApplicantId(e.target.value)}
+            >
+              <option value="">Select applicant...</option>
+              {applicants.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.full_name_original || `${a.first_name || ""} ${a.last_name || ""}`.trim() || `Applicant #${a.id}`}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
 
         <div className="form-group" style={{ marginBottom: 16 }}>

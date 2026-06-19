@@ -10,7 +10,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../api/apiClient.js";
 import { validate_email_format, validate_password_strength } from "../utils/formValidators.js";
-import logo from "../assets/outreachroute_pro_logo.svg";
+import logo from "../assets/outreachroute_primary_logo.png";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export default function Register() {
       <div className="login-page">
         <div className="login-card">
           <div className="login-header">
-            <div className="login-logo">✅</div>
+            <img src={logo} alt="OutreachRoute Pro" className="login-logo-img" />
             <h1 className="login-title">Account Created!</h1>
             <p className="login-subtitle">Your account is ready. Sign in to get started.</p>
           </div>

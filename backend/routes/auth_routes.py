@@ -33,7 +33,7 @@ def login():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    email = data.get("email", "").strip().lower()
+    email = (data.get("email") or "").strip().lower()
     password = data.get("password", "")
 
     if not email or not password:
@@ -84,12 +84,12 @@ def register():
     if not data:
         return jsonify({"error": "Request body is required."}), 400
 
-    first_name = data.get("first_name", "").strip()
-    last_name = data.get("last_name", "").strip()
-    email = data.get("email", "").strip().lower()
+    first_name = (data.get("first_name") or "").strip()
+    last_name = (data.get("last_name") or "").strip()
+    email = (data.get("email") or "").strip().lower()
     password = data.get("password", "")
     role = data.get("role", "oa_user")
-    organization_name = data.get("organization_name", "").strip()
+    organization_name = (data.get("organization_name") or "").strip()
 
     # Validate required fields
     if not all([first_name, last_name, email, password]):

@@ -1,0 +1,35 @@
+<svg viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <defs>
+            <linearGradient id="orproNavyLight" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#0c3273"/>
+                  <stop offset="100%" stop-color="#08265c"/>
+            </linearGradient>
+      </defs>
+
+      <g transform="translate(34,16)">
+            <path d="M120 6C68 6 27 47 27 99c0 44 40 87 93 133 53-46 93-89 93-133 0-52-41-93-93-93z" fill="url(#orproNavyLight)"/>
+            <circle cx="120" cy="66" r="34" fill="#ffffff"/>
+
+            <path d="M39 191C72 157 95 134 126 111c28-20 49-44 67-84" fill="none" stroke="#ffffff" stroke-width="24" stroke-linecap="round"/>
+            <path d="M44 191C75 158 97 136 126 114c26-20 46-43 64-82" fill="none" stroke="#0b2a62" stroke-width="6" stroke-linecap="round" stroke-dasharray="11 10"/>
+
+            <circle cx="44" cy="191" r="14" fill="#ffffff" stroke="#e8a01b" stroke-width="7"/>
+            <circle cx="126" cy="114" r="16" fill="#ffffff" stroke="#e8a01b" stroke-width="7"/>
+
+            <rect x="143" y="143" width="13" height="35" rx="2" fill="#e8a01b"/>
+            <rect x="162" y="128" width="13" height="50" rx="2" fill="#e8a01b"/>
+            <rect x="181" y="109" width="13" height="69" rx="2" fill="#e8a01b"/>
+
+            <path d="M167 92c17-17 28-35 37-57" fill="none" stroke="#0b2a62" stroke-width="8" stroke-linecap="round"/>
+            <polygon points="214,24 186,30 205,47" fill="#e8a01b"/>
+      </g>
+
+      <line x1="280" y1="48" x2="280" y2="214" stroke="#ffffff" stroke-width="3" opacity="0.55"/>
+
+      <text x="320" y="156" font-family="Poppins, 'Segoe UI', Arial, sans-serif" font-size="94" font-weight="700" fill="#ffffff" letter-spacing="-1.5">OutreachRoute</text>
+
+      <g transform="translate(980,84)">
+            <rect x="0" y="0" width="184" height="86" rx="14" fill="#e8a01b"/>
+            <text x="92" y="58" text-anchor="middle" font-family="Poppins, 'Segoe UI', Arial, sans-serif" font-size="66" font-style="italic" font-weight="700" fill="#ffffff">Pro</text>
+      </g>
+</svg>

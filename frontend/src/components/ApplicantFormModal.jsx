@@ -23,6 +23,27 @@ const US_STATES = [
   "Virginia","Washington","West Virginia","Wisconsin","Wyoming",
 ];
 
+const STATE_NAME_TO_ABBR = {
+  Alabama: "AL", Alaska: "AK", Arizona: "AZ", Arkansas: "AR", California: "CA",
+  Colorado: "CO", Connecticut: "CT", Delaware: "DE", Florida: "FL", Georgia: "GA",
+  Hawaii: "HI", Idaho: "ID", Illinois: "IL", Indiana: "IN", Iowa: "IA", Kansas: "KS",
+  Kentucky: "KY", Louisiana: "LA", Maine: "ME", Maryland: "MD", Massachusetts: "MA",
+  Michigan: "MI", Minnesota: "MN", Mississippi: "MS", Missouri: "MO", Montana: "MT",
+  Nebraska: "NE", Nevada: "NV", "New Hampshire": "NH", "New Jersey": "NJ", "New Mexico": "NM",
+  "New York": "NY", "North Carolina": "NC", "North Dakota": "ND", Ohio: "OH", Oklahoma: "OK",
+  Oregon: "OR", Pennsylvania: "PA", "Rhode Island": "RI", "South Carolina": "SC", "South Dakota": "SD",
+  Tennessee: "TN", Texas: "TX", Utah: "UT", Vermont: "VT", Virginia: "VA", Washington: "WA",
+  "West Virginia": "WV", Wisconsin: "WI", Wyoming: "WY",
+};
+
+function normalizeState(input) {
+  if (!input) return input;
+  const raw = String(input).trim();
+  if (!raw) return null;
+  if (raw.length === 2) return raw.toUpperCase();
+  return STATE_NAME_TO_ABBR[raw] || raw;
+}
+
 const APPLICATION_STATUSES = [
   "New Application","Contact Attempted","Contact Made","Interview Scheduled",
   "Interview Completed","Application Incomplete","Missing Documents",
@@ -46,7 +67,7 @@ const empty = () => ({
   first_name: "", last_name: "", phone: "", email: "",
   age: "", date_of_birth: "", address: "", city: "",
   state: "", county: "", zip_code: "", timezone: "",
-  trade_interest: "", education_status: "", application_status: "New Application",
+  trade_interest: "", campus: "", education_status: "", application_status: "New Application",
   assigned_oa_id: "", source: "", referral_source: "", date_applied: "",
   next_follow_up_date: "", notes: "",
 });
@@ -73,6 +94,7 @@ export default function ApplicantFormModal({ applicant, users = [], isAdmin, onS
         zip_code: applicant.zip_code || "",
         timezone: applicant.timezone || "",
         trade_interest: applicant.trade_interest || "",
+        campus: applicant.campus || "",
         education_status: applicant.education_status || "",
         application_status: applicant.application_status || "New Application",
         assigned_oa_id: applicant.assigned_oa_id ?? "",
@@ -99,6 +121,7 @@ export default function ApplicantFormModal({ applicant, users = [], isAdmin, onS
     setSaving(true);
     try {
       const payload = { ...form };
+      payload.state = normalizeState(payload.state);
       if (payload.age === "" || payload.age === null) delete payload.age;
       else payload.age = parseInt(payload.age, 10);
       if (!payload.assigned_oa_id) delete payload.assigned_oa_id;
@@ -109,7 +132,7 @@ export default function ApplicantFormModal({ applicant, users = [], isAdmin, onS
       });
       await onSave(payload);
     } catch (err) {
-      setError(err.message || "Failed to save applicant.");
+      setError(err.response?.data?.error || err.message || "Failed to save applicant.");
       setSaving(false);
     }
   };
@@ -199,6 +222,10 @@ export default function ApplicantFormModal({ applicant, users = [], isAdmin, onS
           <div className="form-group">
             <label className="form-label">Trade Interest</label>
             <input className="form-input" value={form.trade_interest} onChange={set("trade_interest")} placeholder="e.g. Welding, HVAC" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Campus</label>
+            <input className="form-input" value={form.campus} onChange={set("campus")} placeholder="Campus the applicant is going to" />
           </div>
           <div className="form-group">
             <label className="form-label">Application Status</label>

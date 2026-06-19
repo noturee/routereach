@@ -43,6 +43,7 @@ export default function CaseNotes() {
   const [applicantSearch, setApplSearch]    = useState("");
 
   const [showForm, setShowForm]   = useState(false);
+  const [applicants, setApplicants] = useState([]);
   const [flash, setFlash]         = useState("");
   const [flashType, setFlashType] = useState("success");
 
@@ -70,6 +71,12 @@ export default function CaseNotes() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setPage(1); }, [typeFilter, autoFilter]);
+
+  useEffect(() => {
+    apiClient.get("/applicants?per_page=200")
+      .then((res) => setApplicants(res.data.applicants || []))
+      .catch(() => setApplicants([]));
+  }, []);
 
   // Client-side filter by applicant name (since API doesn't support it yet)
   const filtered = applicantSearch.trim()
@@ -219,6 +226,7 @@ export default function CaseNotes() {
         <CaseNoteFormModal
           applicantId={null}
           applicantName={null}
+          applicants={applicants}
           onSave={handleCreate}
           onClose={() => setShowForm(false)}
         />

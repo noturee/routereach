@@ -138,7 +138,7 @@ def create_visit_log():
     else:
         oa_user_id = current_user.id
 
-    marketing_type = data.get("marketing_type", "").strip() or None
+    marketing_type = (data.get("marketing_type") or "").strip() or None
     if marketing_type and marketing_type not in MARKETING_TYPES:
         return jsonify({"error": "Invalid marketing_type."}), 400
 
@@ -150,11 +150,11 @@ def create_visit_log():
         oa_user_id           = oa_user_id,
         visit_date           = visit_date,
         marketing_type       = marketing_type,
-        materials_left       = data.get("materials_left", "").strip() or None,
+        materials_left       = (data.get("materials_left") or "").strip() or None,
         quantity_left        = data.get("quantity_left") or None,
-        contact_person_met   = data.get("contact_person_met", "").strip() or None,
+        contact_person_met   = (data.get("contact_person_met") or "").strip() or None,
         partner_contact_made = bool(data.get("partner_contact_made", False)),
-        visit_notes          = data.get("visit_notes", "").strip() or None,
+        visit_notes          = (data.get("visit_notes") or "").strip() or None,
         follow_up_needed     = follow_up_needed,
         next_follow_up_date  = next_follow_up_date,
     )
