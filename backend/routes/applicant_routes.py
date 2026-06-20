@@ -219,11 +219,9 @@ def create_applicant():
     if not first_name or not last_name:
         return jsonify({"error": "First name and last name are required."}), 400
 
-    # OA users can only create applicants assigned to themselves
-    assigned_oa_id = data.get("assigned_oa_id")
+    # Admins create applicants without assigning them directly.
+    assigned_oa_id = None
     if not is_admin(current_user):
-        assigned_oa_id = current_user.id
-    elif not assigned_oa_id:
         assigned_oa_id = current_user.id
 
     def parse_date(val):
@@ -358,9 +356,9 @@ def update_applicant(applicant_id):
     if "next_follow_up_date" in data:
         applicant.next_follow_up_date = parse_date(data["next_follow_up_date"])
 
-    # Admin-only fields
+    # Admin does not assign applicants from this endpoint.
     if is_admin(current_user) and "assigned_oa_id" in data:
-        applicant.assigned_oa_id = data["assigned_oa_id"]
+        return jsonify({"error": "Admin does not assign applicants directly."}), 403
 
     # Allow status changes through the edit form save flow.
     if "application_status" in data:

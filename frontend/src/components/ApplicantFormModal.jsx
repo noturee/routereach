@@ -3,7 +3,7 @@
  *
  * Props:
  *   applicant: object|null — null for create mode, object for edit mode
- *   users: array — list of active users (for assigned OA selector, admin only)
+ *   users: array — retained for compatibility
  *   isAdmin: bool
  *   onSave(data): function
  *   onClose(): function
@@ -247,19 +247,9 @@ export default function ApplicantFormModal({ applicant, users = [], isAdmin, onS
             <input className="form-input" value={form.referral_source} onChange={set("referral_source")} />
           </div>
         </div>
-        {isAdmin && users.length > 0 && (
-          <div className="form-row">
-            <div className="form-group">
-              <label className="form-label">Assigned OA</label>
-              <select className="form-select" value={form.assigned_oa_id} onChange={set("assigned_oa_id")}>
-                <option value="">Unassigned</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.first_name} {u.last_name} — {u.role}
-                  </option>
-                ))}
-              </select>
-            </div>
+        {isAdmin && (
+          <div className="alert alert-info" style={{ marginTop: 10 }}>
+            Admin accounts can create and manage applicants, but do not assign applicants directly.
           </div>
         )}
 

@@ -8,7 +8,7 @@
  *   onClose(): function
  */
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "./Modal.jsx";
 
 const NOTE_TYPES = [
@@ -34,6 +34,16 @@ export default function CaseNoteFormModal({ applicantId, applicantName, applican
   const [plan,     setPlan]     = useState("");
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState("");
+
+  useEffect(() => {
+    setSelectedApplicantId(applicantId || "");
+  }, [applicantId]);
+
+  const selectedApplicant = applicants.find((candidate) => String(candidate.id) === String(selectedApplicantId));
+  const currentApplicantName = applicantName
+    || selectedApplicant?.full_name_original
+    || `${selectedApplicant?.first_name || ""} ${selectedApplicant?.last_name || ""}`.trim()
+    || (applicantId ? `Applicant #${applicantId}` : "");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,7 +85,12 @@ export default function CaseNoteFormModal({ applicantId, applicantName, applican
           <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>
         )}
 
-        {!applicantId && (
+        {applicantId ? (
+          <div className="form-group" style={{ marginBottom: 16 }}>
+            <label className="form-label">Applicant *</label>
+            <input className="form-input" value={currentApplicantName} readOnly />
+          </div>
+        ) : (
           <div className="form-group" style={{ marginBottom: 16 }}>
             <label className="form-label">Applicant *</label>
             <select

@@ -103,7 +103,6 @@ export default function Applicants() {
   const [flash, setFlash]       = useState("");
   const [flashType, setFlashType] = useState("success");
   const [showForm, setShowForm] = useState(false);
-  const [users, setUsers]       = useState([]);
 
   const searchRef = useRef(null);
 
@@ -136,15 +135,6 @@ export default function Applicants() {
   }, [page, search, statusFilter, importFilter, stateFilter, showWithdrawn, showComplete, isAdmin]);
 
   useEffect(() => { loadApplicants(); }, [loadApplicants]);
-
-  // Load users for OA selector (admin only)
-  useEffect(() => {
-    if (isAdmin) {
-      apiClient.get("/users?is_active=true&per_page=200")
-        .then((r) => setUsers(r.data.users || []))
-        .catch(() => {});
-    }
-  }, [isAdmin]);
 
   // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [search, statusFilter, importFilter, stateFilter, showWithdrawn, showComplete]);
@@ -254,7 +244,7 @@ export default function Applicants() {
       {showForm && (
         <ApplicantFormModal
           applicant={null}
-          users={users}
+          users={[]}
           isAdmin={isAdmin}
           onSave={handleCreate}
           onClose={() => setShowForm(false)}

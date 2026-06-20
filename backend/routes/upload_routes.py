@@ -83,6 +83,7 @@ KNOWN_WORKFLOW_MILESTONES = {
     "Application Verified",
 }
 KNOWN_URGENCY = {"Expedited", "Standard"}
+DISALLOWED_ASSIGNEE_NAMES = {"system admin", "test user"}
 
 REQUIRED_DOCUMENT_CHECKLIST = [
     "Photo ID",
@@ -196,6 +197,31 @@ def _normalise_name_key(*parts) -> str:
 
 def _get_current_user():
     return User.query.get(int(get_jwt_identity()))
+
+
+def _is_disallowed_assignee(user: User | None) -> bool:
+    if not user:
+        return False
+    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip().lower()
+    return full_name in DISALLOWED_ASSIGNEE_NAMES
+
+
+def _resolve_assignable_user_by_id(raw_assigned_oa_id):
+    if raw_assigned_oa_id in (None, "", 0, "0"):
+        return None, None
+
+    try:
+        assigned_oa_id = int(raw_assigned_oa_id)
+    except (TypeError, ValueError):
+        return None, "assigned_oa_id must be an integer."
+
+    assignee = User.query.get(assigned_oa_id)
+    if not assignee:
+        return None, "Assigned OA not found."
+    if _is_disallowed_assignee(assignee):
+        return None, "System Admin and Test User cannot be assigned to applicants."
+
+    return assigned_oa_id, None
 
 
 def _extract_row_data(row, row_num: int, column_mapping: dict[str, str], row_override: dict | None = None, city_zip_updates: dict | None = None):
@@ -386,13 +412,10 @@ def import_applicants():
     ):
         return jsonify({"error": "Map either Applicant Name, or both First Name and Last Name."}), 400
 
-    assigned_oa_id_override = request.form.get("assigned_oa_id")
-    if assigned_oa_id_override:
-        try:
-            assigned_oa_id_override = int(assigned_oa_id_override)
-        except ValueError:
-            return jsonify({"error": "assigned_oa_id must be an integer."}), 400
-    elif not is_admin(current_user):
+    assigned_oa_id_override, assignment_error = _resolve_assignable_user_by_id(request.form.get("assigned_oa_id"))
+    if assignment_error:
+        return jsonify({"error": assignment_error}), 400
+    if assigned_oa_id_override is None and not is_admin(current_user):
         assigned_oa_id_override = current_user.id
 
     skip_duplicates = request.form.get("skip_duplicates", "true").lower() != "false"
@@ -482,21 +505,11 @@ def import_applicants():
         if extracted["case_status"] and extracted["case_status"].lower() == "withdrawn":
             app_status = "Withdrawn by Applicant"
 
-        # Resolve assigned OA by name if provided
-        oa_id = assigned_oa_id_override
-        if not oa_id:
-            oa_name = extracted["assigned_oa_name"]
-            if oa_name:
-                parts = oa_name.strip().split()
-                if len(parts) >= 2:
-                    match = User.query.filter(
-                        User.first_name.ilike(parts[0]),
-                        User.last_name.ilike(parts[-1]),
-                    ).first()
-                    if match:
-                        oa_id = match.id
-            if not oa_id:
-                oa_id = current_user.id
+        # Admin does not assign applicants during import. OA users import to themselves.
+        if is_admin(current_user):
+            oa_id = None
+        else:
+            oa_id = assigned_oa_id_override or current_user.id
 
         applicant = Applicant(
             first_name=first_name,

@@ -70,8 +70,6 @@ export default function UploadApplicants() {
 
   // Import options
   const [skipDups, setSkipDups] = useState(true);
-  const [oaId, setOaId]         = useState("");
-  const [users, setUsers]       = useState([]);
 
   // Results
   const [result, setResult]     = useState(null);   // { imported, skipped, errors }
@@ -85,14 +83,6 @@ export default function UploadApplicants() {
     row_number: row.row_number ?? row.row_num,
     warning_messages: row.warning_messages ?? row.warnings ?? [],
   });
-
-  useEffect(() => {
-    if (isAdmin) {
-      apiClient.get("/users?is_active=true&per_page=200")
-        .then((r) => setUsers(r.data.users || []))
-        .catch(() => {});
-    }
-  }, [isAdmin]);
 
   // ── File selection ────────────────────────────────────────────────────────
 
@@ -169,7 +159,6 @@ export default function UploadApplicants() {
       );
       fd.append("row_overrides", JSON.stringify(rowOverrides));
       fd.append("city_zip_updates", JSON.stringify(bulkZip && bulkCity ? { [bulkCity]: bulkZip } : {}));
-      if (oaId) fd.append("assigned_oa_id", oaId);
 
       const res = await apiClient.post("/uploads/applicants/import", fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -370,17 +359,9 @@ export default function UploadApplicants() {
                 </div>
               </label>
             </div>
-            {isAdmin && users.length > 0 && (
-              <div className="form-group" style={{ marginTop: 12, maxWidth: 360 }}>
-                <label className="form-label">Assign all imported applicants to OA (optional)</label>
-                <select className="form-select" value={oaId} onChange={(e) => setOaId(e.target.value)}>
-                  <option value="">Use OA column from file / assign to me</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.first_name} {u.last_name} — {u.role}
-                    </option>
-                  ))}
-                </select>
+            {isAdmin && (
+              <div className="alert alert-info" style={{ marginTop: 12 }}>
+                Admin imports do not assign applicants directly.
               </div>
             )}
           </div>

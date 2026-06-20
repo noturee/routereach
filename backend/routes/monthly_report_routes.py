@@ -40,61 +40,82 @@ from services.monthly_report_service import (
 
 monthly_report_bp = Blueprint("monthly_reports", __name__)
 
+ADMIN_ROLES = {
+    "master_admin",
+    "national_admin",
+    "regional_admin",
+    "state_admin",
+    "local_admin",
+}
+
+
+def _is_admin_role(role):
+    return role in ADMIN_ROLES
+
 
 def _auto_generate_sections(user_id, month, year):
     """Pull live data and build default narrative text for each report section."""
     aq = Applicant.query.filter(
-        Applicant.assigned_oa_id == user_id,
         func.extract("month", Applicant.created_at) == month,
-        func.extract("year",  Applicant.created_at) == year,
+        func.extract("year", Applicant.created_at) == year,
     )
+    if user_id is not None:
+        aq = aq.filter(Applicant.assigned_oa_id == user_id)
     new_apps = aq.count()
 
     arrivals = aq.filter(Applicant.application_status == "Arrived").count()
     withdrawals = aq.filter(Applicant.is_withdrawn == True).count()
     complete = aq.filter(Applicant.application_status == "Complete Application").count()
 
-    visits = VisitLog.query.filter(
-        VisitLog.oa_user_id == user_id,
+    visits_q = VisitLog.query.filter(
         func.extract("month", VisitLog.visit_date) == month,
-        func.extract("year",  VisitLog.visit_date) == year,
-    ).count()
+        func.extract("year", VisitLog.visit_date) == year,
+    )
+    if user_id is not None:
+        visits_q = visits_q.filter(VisitLog.oa_user_id == user_id)
+    visits = visits_q.count()
 
-    msgs = Message.query.filter(
-        Message.sender_user_id == user_id,
+    msgs_q = Message.query.filter(
         Message.delivery_status == "sent",
         func.extract("month", Message.created_at) == month,
-        func.extract("year",  Message.created_at) == year,
-    ).count()
+        func.extract("year", Message.created_at) == year,
+    )
+    if user_id is not None:
+        msgs_q = msgs_q.filter(Message.sender_user_id == user_id)
+    msgs = msgs_q.count()
 
-    meetings_done = Meeting.query.filter(
-        Meeting.oa_user_id == user_id,
+    meetings_q = Meeting.query.filter(
         Meeting.status == "completed",
         func.extract("month", Meeting.created_at) == month,
-        func.extract("year",  Meeting.created_at) == year,
-    ).count()
+        func.extract("year", Meeting.created_at) == year,
+    )
+    if user_id is not None:
+        meetings_q = meetings_q.filter(Meeting.oa_user_id == user_id)
+    meetings_done = meetings_q.count()
 
-    routes_done = Route.query.filter(
-        Route.oa_user_id == user_id,
+    routes_q = Route.query.filter(
         Route.status == "completed",
         func.extract("month", Route.created_at) == month,
-        func.extract("year",  Route.created_at) == year,
-    ).count()
+        func.extract("year", Route.created_at) == year,
+    )
+    if user_id is not None:
+        routes_q = routes_q.filter(Route.oa_user_id == user_id)
+    routes_done = routes_q.count()
 
     month_names = ["January","February","March","April","May","June",
                    "July","August","September","October","November","December"]
     month_name = month_names[month - 1]
 
-    by_county = (
+    by_county_q = (
         db.session.query(Applicant.county, func.count(Applicant.id))
         .filter(
-            Applicant.assigned_oa_id == user_id,
             func.extract("month", Applicant.created_at) == month,
-            func.extract("year",  Applicant.created_at) == year,
+            func.extract("year", Applicant.created_at) == year,
         )
-        .group_by(Applicant.county)
-        .all()
     )
+    if user_id is not None:
+        by_county_q = by_county_q.filter(Applicant.assigned_oa_id == user_id)
+    by_county = by_county_q.group_by(Applicant.county).all()
     county_lines = "; ".join(f"{c or 'Unknown'}: {n}" for c, n in by_county) or "No data"
 
     return {
@@ -121,19 +142,17 @@ def _auto_generate_sections(user_id, month, year):
 
 
 def _auto_generate_structured_payload(user_id, month, year, counselor_name=""):
-    user = User.query.get(user_id)
-    counselor = counselor_name or (f"{user.first_name} {user.last_name}" if user else "")
+    user = User.query.get(user_id) if user_id is not None else None
+    counselor = counselor_name or (f"{user.first_name} {user.last_name}" if user else "All Outreach Associates")
     payload = build_blank_report_data(month, year, counselor)
 
-    applicants = (
-        Applicant.query.filter(
-            Applicant.assigned_oa_id == user_id,
-            func.extract("month", Applicant.created_at) == month,
-            func.extract("year", Applicant.created_at) == year,
-        )
-        .order_by(Applicant.last_name.asc(), Applicant.first_name.asc())
-        .all()
+    applicants_q = Applicant.query.filter(
+        func.extract("month", Applicant.created_at) == month,
+        func.extract("year", Applicant.created_at) == year,
     )
+    if user_id is not None:
+        applicants_q = applicants_q.filter(Applicant.assigned_oa_id == user_id)
+    applicants = applicants_q.order_by(Applicant.last_name.asc(), Applicant.first_name.asc()).all()
 
     applicant_rows = []
     for applicant in applicants:
@@ -159,25 +178,31 @@ def _auto_generate_structured_payload(user_id, month, year, counselor_name=""):
         [row for row in applicant_rows if (row.get("status") or "").strip()]
     )
 
-    visits = VisitLog.query.filter(
-        VisitLog.oa_user_id == user_id,
+    visits_q = VisitLog.query.filter(
         func.extract("month", VisitLog.visit_date) == month,
         func.extract("year", VisitLog.visit_date) == year,
-    ).count()
+    )
+    if user_id is not None:
+        visits_q = visits_q.filter(VisitLog.oa_user_id == user_id)
+    visits = visits_q.count()
 
-    meetings_done = Meeting.query.filter(
-        Meeting.oa_user_id == user_id,
+    meetings_q = Meeting.query.filter(
         Meeting.status == "completed",
         func.extract("month", Meeting.created_at) == month,
         func.extract("year", Meeting.created_at) == year,
-    ).count()
+    )
+    if user_id is not None:
+        meetings_q = meetings_q.filter(Meeting.oa_user_id == user_id)
+    meetings_done = meetings_q.count()
 
-    routes_done = Route.query.filter(
-        Route.oa_user_id == user_id,
+    routes_q = Route.query.filter(
         Route.status == "completed",
         func.extract("month", Route.created_at) == month,
         func.extract("year", Route.created_at) == year,
-    ).count()
+    )
+    if user_id is not None:
+        routes_q = routes_q.filter(Route.oa_user_id == user_id)
+    routes_done = routes_q.count()
 
     payload["totals"]["workforceVisitsMeetings"] = visits + meetings_done + routes_done
     payload["communityServiceVisibility"]["marketingVisibility"] = (
@@ -225,12 +250,15 @@ def generate():
     year  = data.get("year")  or date.today().year
     report_type = data.get("report_type") or REPORT_TYPE_OUTREACH_ADMISSIONS
 
+    is_admin = _is_admin_role(claims.get("role", ""))
+    include_all_users = bool(data.get("include_all_users")) and is_admin
+
     # Admins can generate for other users
     target_user_id = int(data.get("user_id", user_id))
-    if target_user_id != user_id and claims.get("role", "") not in (
-        "master_admin", "national_admin", "regional_admin", "state_admin", "local_admin"
-    ):
+    if target_user_id != user_id and not is_admin:
         target_user_id = user_id
+
+    source_user_id = None if include_all_users else target_user_id
 
     # Check for existing report
     existing = MonthlyReport.query.filter_by(
@@ -243,7 +271,8 @@ def generate():
         return jsonify({"message": "Report already exists.", "report": existing.to_dict()}), 200
 
     if report_type == REPORT_TYPE_OUTREACH_ADMISSIONS:
-        payload = _auto_generate_structured_payload(target_user_id, month, year, data.get("oa_counselor", ""))
+        default_counselor = "All Outreach Associates" if include_all_users else ""
+        payload = _auto_generate_structured_payload(source_user_id, month, year, data.get("oa_counselor", default_counselor))
         report = MonthlyReport(
             user_id=target_user_id,
             month=month,
@@ -253,7 +282,7 @@ def generate():
             report_data=payload,
         )
     else:
-        sections = _auto_generate_sections(target_user_id, month, year)
+        sections = _auto_generate_sections(source_user_id, month, year)
         report = MonthlyReport(
             user_id=target_user_id,
             month=month,

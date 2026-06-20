@@ -318,10 +318,11 @@ function SectionHeader({ title, description, action }) {
 }
 
 export default function MonthlyReports() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear);
   const [reportType, setReportType] = useState(STRUCTURED_REPORT_TYPE);
+  const [includeAllUsers, setIncludeAllUsers] = useState(false);
   const [reports, setReports] = useState([]);
   const [activeReportId, setActiveReportId] = useState(null);
   const [structuredReport, setStructuredReport] = useState(blankStructuredReport(currentMonth, currentYear));
@@ -398,7 +399,12 @@ export default function MonthlyReports() {
         month: month + 1,
         year,
         report_type: reportType,
-        oa_counselor: user ? `${user.first_name} ${user.last_name}` : "",
+        include_all_users: isAdmin && includeAllUsers,
+        oa_counselor: isAdmin && includeAllUsers
+          ? "All Outreach Associates"
+          : user
+            ? `${user.first_name} ${user.last_name}`
+            : "",
       });
       const generated = response.data.report;
       setStatusMessage("Report generated successfully.");
@@ -933,6 +939,17 @@ export default function MonthlyReports() {
             </button>
           </div>
         </div>
+
+        {isAdmin && (
+          <label className="radio-label" style={{ marginTop: 8 }}>
+            <input
+              type="checkbox"
+              checked={includeAllUsers}
+              onChange={(event) => setIncludeAllUsers(event.target.checked)}
+            />
+            Compile using all assigned OA users
+          </label>
+        )}
 
         <div className="report-type-help-grid">
           {REPORT_TYPE_OPTIONS.map((option) => (
