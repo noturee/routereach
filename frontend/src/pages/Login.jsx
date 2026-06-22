@@ -3,7 +3,7 @@
  */
 
 import React, { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import logo from "../assets/outreachroute_primary_logo.png";
 
@@ -154,6 +154,9 @@ export default function Login() {
           <div className="login-footer">
             <p>
               Contact your administrator if you need access or have forgotten your password.
+            </p>
+            <p>
+              <Link to="/about" className="btn-link">Learn more about RouteReach Pro</Link>
             </p>
           </div>
         </div>

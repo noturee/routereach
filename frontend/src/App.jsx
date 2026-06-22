@@ -14,6 +14,7 @@ import ProtectedRoute from "./auth/ProtectedRoute.jsx";
 // Pages
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+import About from "./pages/About.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import AdminDashboard from "./pages/AdminDashboard.jsx";
 import MyNumbers from "./pages/MyNumbers.jsx";
@@ -44,6 +45,7 @@ export default function App() {
           {/* Public routes */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/about" element={<About />} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

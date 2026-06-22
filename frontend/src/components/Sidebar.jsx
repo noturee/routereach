@@ -4,7 +4,7 @@
  */
 
 import React from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext.jsx";
 import logo from "../assets/outreachroute_compact_logo.png";
 
@@ -98,6 +98,9 @@ export default function Sidebar({ isOpen, onClose }) {
             <a href="mailto:info@thelincolnheritagegroup.com" className="sidebar-contact-link">
               📧 Contact Support
             </a>
+            <Link to="/about" className="sidebar-contact-link">
+              ℹ️ About
+            </Link>
           </div>
           <button className="sidebar-logout-btn" onClick={handleLogout}>
             🚪 Logout
