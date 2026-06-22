@@ -58,6 +58,7 @@ class User(db.Model):
         "Route", foreign_keys="Route.oa_user_id", back_populates="oa_user"
     )
     audit_logs = db.relationship("AuditLog", back_populates="user")
+    events = db.relationship("Event", back_populates="oa_user", cascade="all, delete-orphan")
 
     # ── Password helpers ─────────────────────────────────────────────────────
     def set_password(self, password: str) -> None:

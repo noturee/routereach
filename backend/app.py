@@ -51,6 +51,7 @@ def create_app(config_name=None):
             performance_metric,
             monthly_report,
             audit_log,
+            event,
         )
 
     # ── Route Blueprints ─────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ def create_app(config_name=None):
     from routes.monthly_report_routes import monthly_report_bp
     from routes.performance_routes import performance_bp
     from routes.form_104_routes import form_104_bp
+    from routes.event_routes import event_routes
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(user_bp, url_prefix="/api/users")
@@ -85,6 +87,7 @@ def create_app(config_name=None):
     app.register_blueprint(monthly_report_bp, url_prefix="/api/monthly-reports")
     app.register_blueprint(performance_bp, url_prefix="/api/performance")
     app.register_blueprint(form_104_bp, url_prefix="/api")
+    app.register_blueprint(event_routes)
 
     # ── Health Check ─────────────────────────────────────────────────────────
     @app.route("/api/health")
