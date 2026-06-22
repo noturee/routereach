@@ -94,6 +94,11 @@ export default function Sidebar({ isOpen, onClose }) {
               </div>
             </div>
           )}
+          <div className="sidebar-contact">
+            <a href="mailto:info@thelincolnheritagegroup.com" className="sidebar-contact-link">
+              📧 Contact Support
+            </a>
+          </div>
           <button className="sidebar-logout-btn" onClick={handleLogout}>
             🚪 Logout
           </button>

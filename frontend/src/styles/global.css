@@ -121,6 +121,9 @@ img { max-width: 100%; }
 .sidebar-user-details { display: flex; flex-direction: column; min-width: 0; }
 .sidebar-user-name { font-size: 0.85rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sidebar-user-org { font-size: 0.72rem; color: var(--color-gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar-contact { margin-bottom: 8px; }
+.sidebar-contact-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; color: var(--color-gold); text-decoration: none; transition: color var(--transition); }
+.sidebar-contact-link:hover { color: #ffd699; text-decoration: underline; }
 .sidebar-logout-btn { width: 100%; text-align: left; padding: 8px 12px; background: rgba(220,38,38,0.15); color: #fca5a5; border-radius: var(--border-radius-sm); font-size: 0.85rem; transition: background var(--transition); }
 .sidebar-logout-btn:hover { background: rgba(220,38,38,0.3); }
 
